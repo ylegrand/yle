@@ -41,13 +41,15 @@ $flash = flash_get();
     <?php if (!$u): ?>
       <?php if ($error): ?><p class="msg error"><?=h($error)?></p><?php endif; ?>
       <form method="post" autocomplete="off">
+        <input type="text" name="fake_username" autocomplete="username" style="display:none">
+        <input type="password" name="fake_password" autocomplete="new-password" style="display:none">
         <div>
           <label for="email">Email</label>
-          <input id="email" name="email" placeholder="email" autocomplete="off" autocapitalize="none" spellcheck="false">
+          <input id="email" name="email" placeholder="email" autocomplete="off" autocapitalize="none" spellcheck="false" readonly onfocus="this.removeAttribute('readonly');">
         </div>
         <div>
           <label for="password">Mot de passe</label>
-          <input id="password" type="password" name="password" placeholder="mot de passe" autocomplete="off">
+          <input id="password" type="password" name="password" placeholder="mot de passe" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly');">
         </div>
         <button>Se connecter</button>
       </form>
@@ -55,8 +57,8 @@ $flash = flash_get();
       <p class="small">Connecté: <b><?=h($u['email'])?></b></p>
       <nav class="nav-links">
         <a href="/_admin/users.php">Utilisateurs</a>
-        <a href="/_admin/grants.php">Droits (user ↔ projets)</a>
-        <a href="/_admin/projects.php">Projets (sync)</a>
+        <a href="/_admin/grants.php">Droits (matrice)</a>
+        <a href="/_admin/projects.php">Projets (auto)</a>
         <a href="/">Accueil apps</a>
         <a href="/_admin/logout.php">Logout</a>
       </nav>

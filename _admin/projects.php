@@ -2,7 +2,6 @@
 $cfg = require __DIR__ . '/../_app/config.php';
 require __DIR__ . '/../_app/db.php';
 require __DIR__ . '/../_app/auth.php';
-require __DIR__ . '/../_app/csrf.php';
 require __DIR__ . '/../_app/projects.php';
 require __DIR__ . '/../_app/flash.php';
 
@@ -13,21 +12,15 @@ if (empty($u['is_superadmin'])) { http_response_code(403); exit("Forbidden"); }
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
-$me = (int)$u['id'];
 $projectsRoot = __DIR__ . '/../_projects';
+$res = ['seen' => [], 'missing' => []];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  csrf_check($pdo, $me, $_POST['csrf'] ?? '');
-  try {
-    $res = sync_projects($pdo, realpath($projectsRoot) ?: $projectsRoot);
-    flash_set('ok', "Sync OK — vus: " . count($res['seen']) . ", disparus: " . count($res['missing']));
-  } catch (Throwable $e) {
-    flash_set('error', "Erreur sync: " . $e->getMessage());
-  }
-  header('Location: /_admin/projects.php'); exit;
+try {
+  $res = sync_projects_from_filesystem($pdo, $projectsRoot);
+} catch (Throwable $e) {
+  flash_set('error', "Erreur sync: " . $e->getMessage());
 }
 
-$csrf = csrf_token($pdo, $me);
 $flash = flash_get();
 $projects = $pdo->query("SELECT slug,is_active,last_seen_at,deleted_at FROM projects ORDER BY slug")->fetchAll();
 ?>
@@ -51,10 +44,9 @@ $projects = $pdo->query("SELECT slug,is_active,last_seen_at,deleted_at FROM proj
       <p class="msg <?=h($flash['type'])?>"><b><?=h($flash['type'])?>:</b> <?=h($flash['msg'])?></p>
     <?php endif; ?>
 
-    <form method="post" autocomplete="off">
-      <input type="hidden" name="csrf" value="<?=$csrf?>">
-      <button>Synchroniser (scan _projects/)</button>
-    </form>
+    <p class="small">Rafraîchissement automatique depuis <code>_projects/</code> à chaque ouverture de la page.</p>
+    <p class="small">Nouveaux dossiers: aucune autorisation par défaut. Dossiers supprimés: droits supprimés automatiquement.</p>
+    <p class="small"><b>Dernier scan:</b> vus <?=count($res['seen'])?>, disparus <?=count($res['missing'])?>.</p>
 
     <div class="table-wrap">
       <table>

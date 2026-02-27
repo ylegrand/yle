@@ -4,6 +4,7 @@ $cfg = require __DIR__ . '/_app/config.php';
 require __DIR__ . '/_app/db.php';
 require __DIR__ . '/_app/auth.php';
 require __DIR__ . '/_app/acl.php';
+require __DIR__ . '/_app/projects.php';
 
 $pdo = db($cfg);
 start_session($cfg);
@@ -23,6 +24,12 @@ if ($uri === '') $uri = '/';
    ============================================================ */
 
 if ($uri === '/') {
+
+    try {
+        sync_projects_from_filesystem($pdo, $projectsRoot);
+    } catch (Throwable $e) {
+        // On garde la page disponible même si le scan échoue
+    }
 
     $user = current_user($pdo);
     if (!$user) {

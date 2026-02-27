@@ -4,6 +4,7 @@ require __DIR__ . '/../_app/db.php';
 require __DIR__ . '/../_app/auth.php';
 require __DIR__ . '/../_app/csrf.php';
 require __DIR__ . '/../_app/flash.php';
+require __DIR__ . '/../_app/projects.php';
 
 $pdo = db($cfg);
 start_session($cfg);
@@ -13,46 +14,65 @@ if (empty($u['is_superadmin'])) { http_response_code(403); exit("Forbidden"); }
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
 $me = (int)$u['id'];
+$projectsRoot = __DIR__ . '/../_projects';
+
+try {
+  sync_projects_from_filesystem($pdo, $projectsRoot);
+} catch (Throwable $e) {
+  flash_set('error', "Erreur sync: " . $e->getMessage());
+}
 
 $users = $pdo->query("SELECT id,email FROM users WHERE is_active=1 ORDER BY email")->fetchAll();
 $projects = $pdo->query("SELECT id,slug FROM projects WHERE is_active=1 AND deleted_at IS NULL ORDER BY slug")->fetchAll();
 
-$selectedUserId = (int)($_GET['user_id'] ?? ($users[0]['id'] ?? 0));
+$existingRoles = [];
+$stRoles = $pdo->query("SELECT user_id, project_id, role FROM user_project_roles");
+foreach ($stRoles->fetchAll() as $row) {
+  $existingRoles[(int)$row['user_id']][(int)$row['project_id']] = $row['role'];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_check($pdo, $me, $_POST['csrf'] ?? '');
-  $uid = (int)($_POST['user_id'] ?? 0);
 
-  if (!$uid) {
-    flash_set('error', "Utilisateur manquant");
-  } else {
-    try {
-      $pdo->prepare("DELETE FROM user_project_roles WHERE user_id=?")->execute([$uid]);
+  try {
+    $pdo->beginTransaction();
+
+    if ($users && $projects) {
+      $userIds = array_map(fn($x) => (int)$x['id'], $users);
+      $projectIds = array_map(fn($x) => (int)$x['id'], $projects);
+
+      $uIn = implode(',', array_fill(0, count($userIds), '?'));
+      $pIn = implode(',', array_fill(0, count($projectIds), '?'));
+      $pdo->prepare("DELETE FROM user_project_roles WHERE user_id IN ($uIn) AND project_id IN ($pIn)")
+          ->execute(array_merge($userIds, $projectIds));
+
+      $ins = $pdo->prepare("INSERT INTO user_project_roles(user_id,project_id,role) VALUES(?,?,?)");
       foreach ($projects as $p) {
-        $role = $_POST['role_' . $p['id']] ?? '';
-        if (in_array($role, ['viewer','editor','admin'], true)) {
-          $pdo->prepare("INSERT INTO user_project_roles(user_id,project_id,role) VALUES(?,?,?)")
-              ->execute([$uid, $p['id'], $role]);
+        $pid = (int)$p['id'];
+        foreach ($users as $usr) {
+          $uid = (int)$usr['id'];
+          $field = 'allow_' . $pid . '_' . $uid;
+          if (!empty($_POST[$field])) {
+            $role = $existingRoles[$uid][$pid] ?? 'viewer';
+            if (!in_array($role, ['viewer', 'editor', 'admin'], true)) $role = 'viewer';
+            $ins->execute([$uid, $pid, $role]);
+          }
         }
       }
-      flash_set('ok', "Droits enregistrés");
-    } catch (Throwable $e) {
-      flash_set('error', "Erreur: " . $e->getMessage());
     }
+
+    $pdo->commit();
+    flash_set('ok', "Droits enregistrés");
+  } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    flash_set('error', "Erreur: " . $e->getMessage());
   }
 
-  header("Location: /_admin/grants.php?user_id=$uid"); exit;
+  header("Location: /_admin/grants.php"); exit;
 }
 
 $csrf = csrf_token($pdo, $me);
 $flash = flash_get();
-
-$roles = [];
-if ($selectedUserId) {
-  $st = $pdo->prepare("SELECT project_id, role FROM user_project_roles WHERE user_id=?");
-  $st->execute([$selectedUserId]);
-  foreach ($st->fetchAll() as $r) $roles[(int)$r['project_id']] = $r['role'];
-}
 ?>
 <!doctype html>
 <html lang="fr">
@@ -74,46 +94,39 @@ if ($selectedUserId) {
       <p class="msg <?=h($flash['type'])?>"><b><?=h($flash['type'])?>:</b> <?=h($flash['msg'])?></p>
     <?php endif; ?>
 
-    <form method="get" autocomplete="off">
-      <div class="row">
-        <div>
-          <label for="user_id">Utilisateur</label>
-          <select id="user_id" name="user_id">
-            <?php foreach($users as $x): ?>
-              <option value="<?=$x['id']?>" <?=$x['id']===$selectedUserId?'selected':''?>><?=h($x['email'])?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-      </div>
-      <button>Charger</button>
-    </form>
+    <p class="small">Vue binaire: case cochée = accès (viewer/editor/admin existant conservé), case vide = pas d'accès.</p>
 
-    <?php if ($selectedUserId): ?>
     <form method="post" autocomplete="off">
       <input type="hidden" name="csrf" value="<?=$csrf?>">
-      <input type="hidden" name="user_id" value="<?=$selectedUserId?>">
 
-      <div class="table-wrap">
-        <table>
-          <tr><th>Projet</th><th>Rôle</th></tr>
-          <?php foreach($projects as $p): $rid=(int)$p['id']; ?>
+      <div class="table-wrap grants-matrix-wrap">
+        <table class="grants-matrix">
+          <tr>
+            <th>Application \ Utilisateur</th>
+            <?php foreach($users as $usr): ?>
+              <th><?=h($usr['email'])?></th>
+            <?php endforeach; ?>
+          </tr>
+          <?php foreach($projects as $p): $pid=(int)$p['id']; ?>
             <tr>
-              <td><?=h($p['slug'])?></td>
-              <td>
-                <select name="role_<?=$rid?>">
-                  <option value="">(aucun accès)</option>
-                  <?php foreach(['viewer','editor','admin'] as $r): ?>
-                    <option value="<?=$r?>" <?=(($roles[$rid]??'')===$r)?'selected':''?>><?=$r?></option>
-                  <?php endforeach; ?>
-                </select>
-              </td>
+              <th><?=h($p['slug'])?></th>
+              <?php foreach($users as $usr): $uid=(int)$usr['id']; ?>
+                <td class="checkbox-cell">
+                  <input
+                    type="checkbox"
+                    name="allow_<?=$pid?>_<?=$uid?>"
+                    value="1"
+                    <?= !empty($existingRoles[$uid][$pid]) ? 'checked' : '' ?>
+                    aria-label="Accès <?=h($usr['email'])?> sur <?=h($p['slug'])?>"
+                  >
+                </td>
+              <?php endforeach; ?>
             </tr>
           <?php endforeach; ?>
         </table>
       </div>
       <button>Enregistrer</button>
     </form>
-    <?php endif; ?>
   </section>
 </main>
 </body>
