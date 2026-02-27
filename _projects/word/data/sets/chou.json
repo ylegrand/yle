@@ -1,0 +1,29 @@
+{
+    "id": "chou",
+    "title": "Chou",
+    "bpm": 185,
+    "beatsPerGame": 64,
+    "items": [
+        {
+            "id": "i2",
+            "label": "Chou",
+            "img": "/uploads/sets/chou/i2.webp"
+        },
+        {
+            "id": "i3",
+            "label": "Roue",
+            "img": "/uploads/sets/chou/i3.webp"
+        },
+        {
+            "id": "i4",
+            "label": "Ecrou",
+            "img": "/uploads/sets/chou/i4.webp"
+        },
+        {
+            "id": "imm37ylxi",
+            "label": "Trou",
+            "img": "/uploads/sets/chou/imm37ylxi.webp"
+        }
+    ],
+    "updatedAt": "2026-02-26T18:00:17+00:00"
+}

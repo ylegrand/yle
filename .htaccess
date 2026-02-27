@@ -1,0 +1,10 @@
+Options -Indexes
+RewriteEngine On
+
+# 1) Si le fichier ou dossier existe physiquement → le servir directement
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# 2) Sinon → routeur principal
+RewriteRule ^ index.php [L,QSA]

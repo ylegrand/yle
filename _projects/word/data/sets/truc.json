@@ -1,0 +1,24 @@
+{
+    "id": "truc",
+    "title": "P",
+    "bpm": 185,
+    "beatsPerGame": 64,
+    "items": [
+        {
+            "id": "i1",
+            "label": "Papi",
+            "img": "/uploads/sets/truc/i1.webp"
+        },
+        {
+            "id": "i3",
+            "label": "Pipi",
+            "img": "/uploads/sets/truc/i3.webp"
+        },
+        {
+            "id": "i4",
+            "label": "Pipeau",
+            "img": "/uploads/sets/truc/i4.webp"
+        }
+    ],
+    "updatedAt": "2026-02-26T17:59:58+00:00"
+}

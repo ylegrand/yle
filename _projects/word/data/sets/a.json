@@ -1,0 +1,29 @@
+{
+    "id": "a",
+    "title": "A",
+    "bpm": 185,
+    "beatsPerGame": 64,
+    "items": [
+        {
+            "id": "i1",
+            "label": "",
+            "img": "/uploads/sets/a/i1.webp"
+        },
+        {
+            "id": "i2",
+            "label": "",
+            "img": ""
+        },
+        {
+            "id": "i3",
+            "label": "",
+            "img": ""
+        },
+        {
+            "id": "i4",
+            "label": "",
+            "img": ""
+        }
+    ],
+    "updatedAt": "2026-02-26T21:52:00+00:00"
+}

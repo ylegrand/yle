@@ -1,0 +1,449 @@
+/* app.css — LIGHT theme + responsive play grid (8 slots visible, no scroll)
+   - Keeps the original structure/classes (topbar, cards, buttons, admin editor, play grid)
+   - PLAY ONLY:
+       * Portrait: 2 cols x 4 rows
+       * Landscape/wide: 4 cols x 2 rows
+       * Each .cell (frame) is square (aspect-ratio:1/1)
+       * Grid cell size auto-fits viewport to avoid scrolling
+   Requires <body data-page="play|admin|home"> (already supported by index.php page_head()).
+*/
+
+/* ---------- Base reset ---------- */
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color:#111827;
+  background:#f6f7fb;
+}
+
+body[data-page="play"] #grid.phase-recall .cell__label{
+  display: none;
+}
+
+/* Links should look like the site, not browser default */
+a{ color:inherit; text-decoration:none; }
+a:hover{ text-decoration:underline; }
+
+/* ---------- Layout ---------- */
+.container{
+  width:min(1100px, calc(100% - 32px));
+  margin:16px auto 32px;
+}
+
+/* ---------- Topbar ---------- */
+.topbar{
+  position:sticky;
+  top:0;
+  z-index:5;
+  background:rgba(246,247,251,0.92);
+  backdrop-filter:saturate(1.2) blur(8px);
+  border-bottom:1px solid rgba(17,24,39,0.08);
+}
+.topbar__inner{
+  width:min(1100px, calc(100% - 32px));
+  margin:0 auto;
+  padding:10px 0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+.brand{
+  font-weight:800;
+  letter-spacing:0.2px;
+}
+.nav{ display:flex; gap:14px; }
+.nav a{
+  padding:6px 10px;
+  border-radius:10px;
+  color:rgba(17,24,39,0.75);
+}
+.nav a:hover{ background:rgba(17,24,39,0.06); text-decoration:none; }
+
+/* ---------- Typography ---------- */
+.h1{ font-size:28px; margin:0 0 6px; }
+.h2{ font-size:18px; margin:0 0 10px; }
+.strong{ font-weight:700; }
+.muted{ color:rgba(17,24,39,0.62); }
+.small{ font-size:12px; }
+
+/* ---------- Utilities ---------- */
+.row{ display:flex; }
+.gap{ gap:10px; }
+.between{ justify-content:space-between; }
+.center{ align-items:center; }
+.grow{ flex:1; }
+.wrap{ flex-wrap:wrap; }
+
+/* ---------- Cards ---------- */
+.card{
+  background:#ffffff;
+  border:1px solid rgba(17,24,39,0.10);
+  border-radius:16px;
+  padding:14px;
+  box-shadow: 0 10px 24px rgba(17,24,39,0.06);
+}
+.cards{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:12px;
+}
+@media (max-width: 900px){
+  .cards{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 520px){
+  .cards{ grid-template-columns: 1fr; }
+}
+
+/* ---------- Buttons ---------- */
+.btn{
+  appearance:none;
+  border:1px solid rgba(17,24,39,0.16);
+  background:#111827;
+  color:#ffffff;
+  border-radius:12px;
+  padding:10px 12px;
+  font-weight:700;
+  cursor:pointer;
+  line-height:1;
+}
+.btn:hover{ filter:brightness(0.98); }
+.btn:disabled{ opacity:0.55; cursor:not-allowed; }
+.btn--ghost{
+  background:#ffffff;
+  color:#111827;
+}
+.btn--danger{
+  background:#b42318;
+  border-color:#b42318;
+  color:#ffffff;
+}
+
+/* ---------- Lists (admin) ---------- */
+.list{ display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+.list__row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:10px;
+  border:1px solid rgba(17,24,39,0.10);
+  border-radius:14px;
+  background:rgba(17,24,39,0.02);
+}
+.list__row .row{ gap:8px; }
+
+/* ---------- Forms (admin) ---------- */
+.form{ margin-top:10px; display:flex; flex-direction:column; gap:12px; }
+.field{ display:flex; flex-direction:column; gap:6px; min-width: 160px; }
+.field__label{ font-size:12px; color:rgba(17,24,39,0.60); font-weight:700; }
+input{
+  border:1px solid rgba(17,24,39,0.14);
+  background:#ffffff;
+  color:#111827;
+  padding:10px 12px;
+  border-radius:12px;
+  outline:none;
+}
+input:focus{
+  border-color: rgba(17,24,39,0.35);
+  box-shadow: 0 0 0 4px rgba(17,24,39,0.08);
+}
+
+/* ---------- Two-col admin layout ---------- */
+.two-col{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap:12px;
+}
+@media (max-width: 980px){
+  .two-col{ grid-template-columns: 1fr; }
+}
+
+/* ---------- Items editor (admin) ---------- */
+.items{ margin-top:10px; display:flex; flex-direction:column; gap:10px; }
+.itemrow{
+  display:grid;
+  grid-template-columns: 88px 1fr;
+  gap:12px;
+  padding:10px;
+  border:1px solid rgba(17,24,39,0.10);
+  border-radius:14px;
+  background:rgba(17,24,39,0.02);
+}
+.itemrow__img{
+  width:88px;
+  aspect-ratio:1/1;
+  border-radius:12px;
+  border:1px dashed rgba(17,24,39,0.22);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  background:#ffffff;
+}
+.itemrow__img img{ width:100%; height:100%; object-fit:cover; display:block; }
+.placeholder{ color:rgba(17,24,39,0.40); font-weight:800; }
+
+/* ---------- Modal (cropper) ---------- */
+.modal{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:50; }
+.modal[hidden]{ display:none; }
+.modal__backdrop{ position:absolute; inset:0; background:rgba(17,24,39,0.55); }
+.modal__panel{
+  position:relative;
+  width:min(900px, calc(100% - 32px));
+  background:#ffffff;
+  border-radius:16px;
+  padding:14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+.cropWrap{
+  margin:12px 0;
+  width:100%;
+  max-height: 60vh;
+  overflow:hidden;
+  border-radius:14px;
+  border:1px solid rgba(17,24,39,0.10);
+}
+#cropImage{ width:100%; display:block; }
+
+/* ---------- PLAY ---------- */
+.hud{
+  margin-top:10px;
+  display:flex;
+  gap:14px;
+  flex-wrap:wrap;
+  color:rgba(17,24,39,0.72);
+  font-weight:700;
+}
+
+/* Default grid styling (safe) */
+.grid{
+  margin-top:12px;
+  display:grid;
+  gap:12px;
+  justify-content:center;
+}
+
+/* Cell styling (frame) */
+.cell{
+  border-radius:16px;
+  border:1px solid rgba(17,24,39,0.12);
+  background:#ffffff;
+  box-shadow: 0 10px 24px rgba(17,24,39,0.06);
+  overflow:hidden;
+}
+.cell__img{
+  width:100%;
+  aspect-ratio:1/1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(17,24,39,0.02);
+}
+.cell__img img{ width:100%; height:100%; object-fit:cover; display:block; }
+.cell__label{
+  padding:8px 10px;
+  font-weight:800;
+  font-size:14px;
+  color:#111827;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  border-top:1px solid rgba(17,24,39,0.08);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Reveal / active states used by JS */
+.cell.is-revealed{ border-color: rgba(17,24,39,0.20); }
+.cell.is-active{ outline: 8px solid rgb(255 108 0); outline-offset: -2px; }
+.cell.reveal-pop{ animation: pop 140ms ease-out; }
+@keyframes pop{ from{ transform:scale(0.98); } to{ transform:scale(1); } }
+
+/* ---- PLAY: Ultra-compact header + grille plein écran, slots carrés, no scroll (page-scoped) ---- */
+
+body[data-page="play"]{ overflow:hidden; }
+
+/* Topbar plus basse sur play */
+body[data-page="play"] .topbar__inner{
+  padding: 4px 0;
+}
+body[data-page="play"] .brand{
+  font-size: 15px;
+  line-height: 1;
+}
+body[data-page="play"] .nav a{
+  padding: 3px 7px;
+  font-size: 13px;
+}
+
+/* Container: quasi plein écran (réduit les marges) */
+body[data-page="play"] .container{
+  width: calc(100% - 10px);
+  margin: 4px auto 4px;
+  min-height: calc(100dvh - 40px);
+}
+
+/* Carte "Jeu" plus compacte */
+body[data-page="play"] .container > .card:not(#results){
+  padding: 8px 10px;
+}
+body[data-page="play"] .h1{
+  font-size: 20px;
+  margin: 0 0 1px;
+  line-height: 1.05;
+}
+body[data-page="play"] .muted{ font-size: 12px; }
+body[data-page="play"] .hud{
+  margin-top: 4px;
+  gap: 8px;
+  font-size: 11px;
+  flex-wrap: nowrap;
+  overflow:hidden;
+  white-space: nowrap;
+}
+body[data-page="play"] .btn{
+  padding: 8px 9px;
+  border-radius: 10px;
+}
+
+/* Grille: cellule carrée calculée au plus juste.
+   Astuce clé: on réduit fortement la réserve UI (clamp bas) + on réduit gaps/marges. */
+body[data-page="play"] #grid{
+  --cols: 4;
+  --rows: 2;
+  --gap: 10px;
+
+  /* Réserve verticale pour la carte du haut (basée sur dvh, très optimisée) */
+  --uiH: clamp(82px, 15dvh, 120px);
+
+  --availW: calc(100vw - 10px);                 /* = .container */
+  --availH: calc(100dvh - 40px - var(--uiH) - 6px); /* topbar compact + UI + marge */
+
+  --cell: min(
+    calc((var(--availW) - (var(--gap) * (var(--cols) - 1))) / var(--cols)),
+    calc((var(--availH) - (var(--gap) * (var(--rows) - 1))) / var(--rows))
+  );
+
+  display:grid;
+  grid-template-columns: repeat(var(--cols), var(--cell));
+  grid-auto-rows: var(--cell);
+  gap: var(--gap);
+  justify-content:center;
+  align-content:start;
+  margin-top: 6px;
+}
+
+/* Portrait => 2 x 4 */
+@media (orientation: portrait){
+  body[data-page="play"] #grid{
+    --cols: 2;
+    --rows: 4;
+    --uiH: clamp(86px, 16dvh, 128px);
+  }
+}
+
+/* Slots carrés + label en overlay */
+body[data-page="play"] .cell{ position:relative; }
+body[data-page="play"] .cell__img{
+  height:100%;
+  width:100%;
+  aspect-ratio:auto; /* la cellule est carrée via grid-auto-rows */
+}
+body[data-page="play"] .cell__label{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: rgba(255,255,255,0.92);
+  border-top:1px solid rgba(17,24,39,0.08);
+  backdrop-filter: blur(6px);
+}
+body[data-page="play"] .cell__label:empty{ display:none; }
+
+/* Ultra small: encore + agressif */
+@media (max-width: 380px){
+  body[data-page="play"] #grid{ --gap: 8px; --uiH: clamp(78px, 15dvh, 115px); }
+  body[data-page="play"] .container{ width: calc(100% - 8px); margin: 3px auto; }
+  body[data-page="play"] .container > .card:not(#results){ padding: 7px 9px; }
+  body[data-page="play"] .h1{ font-size: 19px; }
+  body[data-page="play"] .hud{ font-size: 10.5px; gap: 7px; }
+  body[data-page="play"] .btn{ padding: 7px 8px; }
+}
+
+
+/* ---------- Admin responsive tweaks (added) ---------- */
+@media (max-width: 720px){
+  /* Allow rows to wrap in admin so buttons/fields don't overflow */
+  .form .row{ flex-wrap:wrap; }
+  .list__row{ flex-wrap:wrap; align-items:flex-start; }
+  .list__row .row{ flex-wrap:wrap; }
+}
+
+@media (max-width: 520px){
+  .itemrow{ grid-template-columns: 1fr; }
+  .itemrow__img{
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto;
+  }
+}
+
+/* Disabled state for preview when ID not generated yet */
+.btn.is-disabled{
+  opacity: .55;
+  pointer-events: none;
+}
+
+input[readonly]{
+  background: rgba(17,24,39,0.04);
+  color: rgba(17,24,39,0.70);
+}
+
+
+/* ---------- PLAY: loading overlay (preload assets before Start) ---------- */
+.loading-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(10, 12, 16, 0.72);
+  backdrop-filter: blur(6px);
+}
+.loading-overlay[hidden]{ display:none !important; }
+
+.loading-card{
+  width: min(520px, 100%);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.94);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+  text-align: center;
+}
+.loading-title{
+  font-weight: 800;
+  font-size: 18px;
+}
+.loading-detail{
+  font-size: 13px;
+  color: rgba(0,0,0,0.65);
+}
+.loading-spinner{
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 3px solid rgba(0,0,0,0.15);
+  border-top-color: rgba(0,0,0,0.55);
+  margin: 6px auto 2px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

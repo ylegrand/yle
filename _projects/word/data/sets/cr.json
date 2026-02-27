@@ -1,0 +1,34 @@
+{
+    "id": "cr",
+    "title": "Cr",
+    "bpm": 185,
+    "beatsPerGame": 64,
+    "items": [
+        {
+            "id": "i1",
+            "label": "Crosse ",
+            "img": "/uploads/sets/cr/i1.webp"
+        },
+        {
+            "id": "i2",
+            "label": "Coucou ",
+            "img": "/uploads/sets/cr/i2.webp"
+        },
+        {
+            "id": "i3",
+            "label": "Route ",
+            "img": "/uploads/sets/cr/i3.webp"
+        },
+        {
+            "id": "i4",
+            "label": "Croute",
+            "img": "/uploads/sets/cr/i4.webp"
+        },
+        {
+            "id": "imm3qsmsv",
+            "label": "Prout",
+            "img": "/uploads/sets/cr/imm3qsmsv.webp"
+        }
+    ],
+    "updatedAt": "2026-02-26T17:33:56+00:00"
+}
