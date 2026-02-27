@@ -45,7 +45,15 @@ if ($uri === '/') {
         exit;
     }
 
-    echo '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Applications</title><link rel="stylesheet" href="/assets/portal.css"></head><body><main class="container stack">';
+    echo '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Applications</title><link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="stylesheet" href="/assets/portal.css"></head><body><main class="container stack">
+  <header class="portal-brand">
+    <img src="/assets/brand-logo.png" alt="Logo YLE">
+    <div>
+      <div class="portal-brand-title">YLE Portail</div>
+      <div class="portal-brand-subtitle">Espace central</div>
+    </div>
+  </header>';
     echo '<section class="card stack">';
     echo '<div class="topbar"><h1>Applications</h1><span class="badge">Connecté : ' . h($user['email']) . '</span></div>';
     echo '<nav class="nav-links"><a href="/_admin/">Admin</a><a href="/_admin/logout.php">Logout</a></nav>';

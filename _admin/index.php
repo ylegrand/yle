@@ -27,10 +27,18 @@ $flash = flash_get();
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin</title>
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
   <link rel="stylesheet" href="/assets/portal.css">
 </head>
 <body>
 <main class="container stack">
+  <header class="portal-brand">
+    <img src="/assets/brand-logo.png" alt="Logo YLE">
+    <div>
+      <div class="portal-brand-title">YLE Portail</div>
+      <div class="portal-brand-subtitle">Espace central</div>
+    </div>
+  </header>
   <section class="card stack">
     <h1>Admin</h1>
 
