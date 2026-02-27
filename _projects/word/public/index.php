@@ -279,25 +279,7 @@ if ($p === 'play') {
   $beatWav = $beatBase . '.wav';
   $beatM4a = $beatBase . '.m4a';
   $beatOgg = $beatBase . '.ogg';
-  $extraHead = <<<HTML
-  <link rel="preload" as="audio" href="{$beatM4a}" type="audio/mp4" crossorigin>
-  <link rel="preload" as="audio" href="{$beatOgg}" type="audio/ogg" crossorigin>
-  <link rel="preload" as="audio" href="{$beatWav}" type="audio/wav" crossorigin>
-  <script>
-  // Warm up cache ASAP (best-effort).
-  (function(){
-    var list = ["{$beatM4a}", "{$beatOgg}", "{$beatWav}"];
-    list.forEach(function(u){
-      try{ fetch(u, {cache:'force-cache', mode:'same-origin'}).catch(function(){}); }catch(e){}
-    });
-    if('caches' in window){
-      caches.open('say-on-beat-v2').then(function(c){
-        return Promise.all(list.map(function(u){ return c.add(u).catch(function(){}); }));
-      }).catch(function(){});
-    }
-  })();
-  </script>
-HTML;
+  $extraHead = '';
   page_head('Jouer', $extraHead, 'play'); ?>
   <div id="loadingOverlay" class="loading-overlay" hidden>
     <div class="loading-card">
@@ -337,7 +319,7 @@ HTML;
     </div>
   </div>
 
-  <audio id="beatAudio" preload="metadata" loop></audio>
+  <audio id="beatAudio" preload="none" loop></audio>
   <script>
     window.__BASE__ = "<?= $BASE ?>";
     window.__PAGE__ = "play";

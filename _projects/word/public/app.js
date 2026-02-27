@@ -162,23 +162,16 @@ async function initPlay(){
 
   const collectAssetList = () => {
     const imgs = library.map(it => assetUrl(it?.img || "")).filter(Boolean);
-    const audio = getBeatUrl();
-    return { imgs, audio };
-  };
-
-  const warmFetch = async (url) => {
-    // Best-effort cache warmup (no throw on failure here)
-    try { await fetch(url, { cache: "force-cache" }); } catch {}
+    return { imgs };
   };
 
   const preloadAssets = async () => {
-    const { imgs, audio } = collectAssetList();
+    const { imgs } = collectAssetList();
     showLoading("Chargement du set…", "Préparation des images et de la musique");
 
-    // 1) prefetch audio + decode once (guarantee playable on Start)
+    // 1) fetch + decode audio once (guarantee playable on Start)
     try{
       await ensureAudio();
-      await warmFetch(audio);
       await loadBeatBuffer(); // will fetch+decode, or throw if missing/corrupt
     } catch (e){
       throw new Error("Audio: " + (e?.message || e));
