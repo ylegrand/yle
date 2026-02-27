@@ -228,6 +228,7 @@ async function initPlay(){
   let raf = null;
   let state = "idle"; // idle | playing | finished
   let assetsReady = false;
+  let hasLoadError = false;
 
   // Per-round mapping (slotItems) decided at round start, random only affects mapping
   let slotItems = Array(SLOTS).fill(null);
@@ -574,6 +575,7 @@ btnStart.disabled = false;
 
   const runPreload = async () => {
     assetsReady = false;
+    hasLoadError = false;
     try{
       await preloadAssets();
       assetsReady = true;
@@ -581,6 +583,7 @@ btnStart.disabled = false;
       btnStop.disabled = true;
     } catch (e){
       console.warn(e);
+      hasLoadError = true;
       const detail = (e?.message || String(e));
       showLoadError("Chargement impossible", detail);
     }
@@ -606,6 +609,19 @@ btnStart.disabled = false;
       // Stop immediately to avoid desync when returning
       hardReset({ closeAudio: false });
       showLoading("Pause", "Reviens et relance la partie");
+      return;
+    }
+
+    // On some refresh/restore paths, visibility can briefly toggle and leave
+    // the pause overlay stuck while assets are already loaded.
+    if(hasLoadError){
+      return;
+    }
+
+    if(assetsReady){
+      hideLoading();
+    } else {
+      runPreload();
     }
   });
 
