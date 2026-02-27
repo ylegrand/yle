@@ -1,0 +1,411 @@
+/* ----------- STRUCTURE GÉNÉRALE ----------- */
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f3f4f6;
+    color: #111827;
+}
+
+header {
+    background: #111827;
+    color: white;
+    padding: 1rem 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.4rem;
+}
+
+header .muted {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+main {
+    margin: 1.5rem auto;
+    padding: 0 1rem 2rem;
+}
+
+.panel {
+    background: white;
+    border-radius: 0.75rem;
+    padding: 1.25rem 1.25rem 1.5rem;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+    margin-bottom: 1.25rem;
+}
+
+.panel h2 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+}
+
+.flex {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+label {
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+/* ----------- FORMULAIRES ----------- */
+
+input[type="text"], select, textarea {
+    font-family: inherit;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid #d1d5db;
+    box-sizing: border-box;
+}
+
+input[type="text"]:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 1px #2563eb33;
+}
+
+button {
+    font-family: inherit;
+    font-size: 0.9rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+}
+
+button.primary {
+    background: #2563eb;
+    color: white;
+}
+
+button.primary:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+button.secondary {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+button:hover:not(:disabled).primary {
+    background: #1d4ed8;
+}
+
+button:hover:not(:disabled).secondary {
+    background: #d1d5db;
+}
+
+.status {
+    font-size: 0.8rem;
+    margin-left: 0.5rem;
+    color: #059669;
+}
+
+.muted {
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+/* ----------- TABLEAU ----------- */
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.8rem;
+    table-layout: fixed; /* colonnes compactes */
+}
+
+/* --- En-têtes multi-lignes avec rupture au caractère --- */
+th {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.3rem 0.4rem;
+    text-align: left;
+    vertical-align: middle;
+
+    white-space: normal;        /* autorise le retour à la ligne */
+    overflow: visible;
+    text-overflow: clip;
+
+    /* coupe par mot (meilleur rendu) */
+    word-break: break-word;     
+    overflow-wrap: break-word;
+
+    font-weight: 600;
+    font-size: 0.75rem;
+    line-height: 1.15;
+}
+
+th .sort-indicator {
+    font-size: 0.65rem;
+    opacity: 0.6;
+    margin-left: 0.2rem;
+}
+
+th .filter-input {
+    margin-top: 0.15rem;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.15rem 0.3rem;
+    font-size: 0.7rem;
+}
+
+/* --- Cellules (pas de retour ligne + ellipsis) --- */
+td {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.3rem 0.4rem;
+    text-align: left;
+    vertical-align: middle;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+thead {
+    position: sticky;
+    top: 0;
+    background: #f9fafb;
+    z-index: 2;
+}
+
+tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+tbody tr:hover {
+    background: #e5f2ff;
+}
+
+/* ----------- TAGS ----------- */
+
+.tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.35rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    background: #e5e7eb;
+    color: #374151;
+    margin-right: 0.2rem;
+    margin-bottom: 0.15rem;
+}
+
+.tag span {
+    margin-left: 0.2rem;
+    cursor: pointer;
+}
+
+/* ----------- HEATMAP ----------- */
+
+.heat {
+    border-radius: 0.25rem;
+    padding: 0.1rem 0.25rem;
+    display: inline-block;
+}
+
+/* ----------- COLONNES : LARGEURS ----------- */
+
+th[data-col="name"], td[data-col="name"] {
+    width: 180px;
+    max-width: 180px;
+}
+
+th[data-col="form"], td[data-col="form"] {
+    width: 80px;
+    max-width: 80px;
+}
+
+th[data-col="rarity"], td[data-col="rarity"] {
+    width: 90px;
+    max-width: 90px;
+}
+
+th[data-col="level"], td[data-col="level"],
+th[data-col="health"], td[data-col="health"],
+th[data-col="damage"], td[data-col="damage"],
+th[data-col="dps"], td[data-col="dps"],
+th[data-col="range"], td[data-col="range"],
+th[data-col="speed"], td[data-col="speed"],
+th[data-col="cost"], td[data-col="cost"] {
+    width: 60px;
+    max-width: 60px;
+    text-align: right;
+}
+
+th[data-col="time_between_attacks"], td[data-col="time_between_attacks"],
+th[data-col="recharge_time"], td[data-col="recharge_time"] {
+    width: 60px;
+    max-width: 60px;
+    text-align: right;
+}
+
+th[data-col="target"], td[data-col="target"] {
+    width: 100px;
+    max-width: 100px;
+}
+
+th[data-col="enemy_types"], td[data-col="enemy_types"] {
+    width: 140px;
+    max-width: 140px;
+}
+
+th[data-col="traits"], td[data-col="traits"] {
+    width: 160px;
+    max-width: 160px;
+}
+
+th[data-col="abilities"], td[data-col="abilities"] {
+    width: 180px;
+    max-width: 180px;
+}
+
+/* Ability flags (0/1) */
+th[data-col^="ability__"], td[data-col^="ability__"] {
+    width: 60px;
+    max-width: 60px;
+    text-align: center;
+}
+
+/* ----------- BOUTON DE RETRAIT ----------- */
+
+.remove-cell {
+    width: 40px;
+    max-width: 40px;
+    text-align: center;
+}
+
+.remove-btn {
+    border: none;
+    background: #fecaca;
+    color: #991b1b;
+    border-radius: 999px;
+    width: 22px;
+    height: 22px;
+    font-size: 0.8rem;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+}
+
+.remove-btn:hover {
+    background: #fca5a5;
+}
+
+/* ----------- EXPORT ----------- */
+
+.actions-cell {
+    width: 90px;
+    max-width: 90px;
+}
+
+#exportText {
+    width: 100%;
+    min-height: 200px;
+    resize: vertical;
+    margin-top: 0.5rem;
+    box-sizing: border-box;
+}
+
+.export-actions {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* ----------- AUTOCOMPLÉTION ----------- */
+
+#autocompleteList {
+    font-size: 0.85rem;
+}
+
+.autocomplete-item:hover {
+    background: #e5f2ff;
+}
+
+
+.flex-main {
+
+    min-width: 260px;
+}
+
+/* Bloc Top 10 à droite de l’auto-complétion */
+.top10-panel {
+    min-width: 260px;
+
+    font-size: 0.8rem;
+	flex: 1;
+}
+
+.top10-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+
+/* 2 colonnes, jusqu’à 5 lignes = 10 persos max */
+.top10-grid {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 0.3rem 0.75rem;
+}
+
+.top10-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.25rem;
+    padding: 0.2rem 0.3rem;
+    border-radius: 0.375rem;
+    background: #f9fafb;
+}
+
+.top10-name {
+    font-weight: 500;
+    font-size: 0.78rem;
+}
+
+.top10-sub {
+    font-size: 0.7rem;
+    color: #6b7280;
+}
+
+.top10-rank {
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: #4b5563;
+    margin-top: 0.05rem;
+}
+
+.top10-empty {
+    font-size: 0.78rem;
+}
+
+/* Sur mobile : le bloc Top 10 passe en dessous */
+@media (max-width: 768px) {
+    .top10-panel {
+        margin-top: 0.75rem;
+        width: 100%;
+    }
+}
+
+
+/* ----------- RESPONSIVE ----------- */
+
+@media (max-width: 768px) {
+    main {
+        padding: 0 0.5rem 1.5rem;
+    }
+    input[type="text"], select {
+        min-width: 0;
+        width: 100%;
+    }
+}

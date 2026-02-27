@@ -60,53 +60,77 @@ $csrf = csrf_token($pdo, $me);
 $flash = flash_get();
 $users = $pdo->query("SELECT id,email,is_superadmin,is_active,last_login FROM users ORDER BY is_superadmin DESC, email")->fetchAll();
 ?>
-<!doctype html><meta charset="utf-8">
-<body style="font-family:system-ui;max-width:1100px;margin:40px auto;">
-<p><a href="/_admin/">← Menu</a> | <a href="/">Accueil apps</a></p>
-<h2>Utilisateurs</h2>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Utilisateurs</title>
+  <link rel="stylesheet" href="/assets/portal.css">
+</head>
+<body>
+<main class="container stack">
+  <section class="card stack">
+    <div class="topbar">
+      <h2>Utilisateurs</h2>
+      <nav class="nav-links"><a href="/_admin/">← Menu</a><a href="/">Accueil apps</a></nav>
+    </div>
 
-<?php if ($flash): ?>
-  <p style="padding:10px;border:1px solid #ddd;background:#fff;"><b><?=h($flash['type'])?>:</b> <?=h($flash['msg'])?></p>
-<?php endif; ?>
-
-<table border="1" cellpadding="8" cellspacing="0">
-<tr><th>ID</th><th>Email</th><th>Super</th><th>Actif</th><th>Last login</th><th>Actions</th></tr>
-<?php foreach($users as $x): ?>
-<tr>
-  <td><?=h($x['id'])?></td>
-  <td><?=h($x['email'])?></td>
-  <td><?= $x['is_superadmin'] ? 'oui' : 'non' ?></td>
-  <td><?= $x['is_active'] ? 'oui' : 'non' ?></td>
-  <td><?=h($x['last_login'] ?? '')?></td>
-  <td>
-    <?php if (!$x['is_superadmin']): ?>
-    <form method="post" style="display:inline" autocomplete="off">
-      <input type="hidden" name="csrf" value="<?=$csrf?>">
-      <input type="hidden" name="action" value="toggle">
-      <input type="hidden" name="id" value="<?=h($x['id'])?>">
-      <button><?= $x['is_active'] ? 'Désactiver' : 'Activer' ?></button>
-    </form>
+    <?php if ($flash): ?>
+      <p class="msg <?=h($flash['type'])?>"><b><?=h($flash['type'])?>:</b> <?=h($flash['msg'])?></p>
     <?php endif; ?>
-  </td>
-</tr>
-<?php endforeach; ?>
-</table>
 
-<h3>Créer utilisateur</h3>
-<form method="post" autocomplete="off">
-  <input type="hidden" name="csrf" value="<?=$csrf?>">
-  <input type="hidden" name="action" value="create">
-  <input name="email" placeholder="email" style="width:360px" autocomplete="off">
-  <input type="password" name="password" placeholder="mot de passe (min 12)" style="width:360px" autocomplete="new-password">
-  <button>Créer</button>
-</form>
+    <div class="table-wrap">
+      <table>
+        <tr><th>ID</th><th>Email</th><th>Super</th><th>Actif</th><th>Last login</th><th>Actions</th></tr>
+        <?php foreach($users as $x): ?>
+        <tr>
+          <td><?=h($x['id'])?></td>
+          <td><?=h($x['email'])?></td>
+          <td><?= $x['is_superadmin'] ? 'oui' : 'non' ?></td>
+          <td><?= $x['is_active'] ? 'oui' : 'non' ?></td>
+          <td><?=h($x['last_login'] ?? '')?></td>
+          <td>
+            <?php if (!$x['is_superadmin']): ?>
+            <form method="post" class="inline-form" autocomplete="off">
+              <input type="hidden" name="csrf" value="<?=$csrf?>">
+              <input type="hidden" name="action" value="toggle">
+              <input type="hidden" name="id" value="<?=h($x['id'])?>">
+              <button><?= $x['is_active'] ? 'Désactiver' : 'Activer' ?></button>
+            </form>
+            <?php endif; ?>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+      </table>
+    </div>
+  </section>
 
-<h3>Reset mot de passe</h3>
-<form method="post" autocomplete="off">
-  <input type="hidden" name="csrf" value="<?=$csrf?>">
-  <input type="hidden" name="action" value="reset">
-  <input name="id" placeholder="user id" style="width:120px" autocomplete="off">
-  <input type="password" name="password" placeholder="nouveau mot de passe (min 12)" style="width:360px" autocomplete="new-password">
-  <button>Reset</button>
-</form>
+  <section class="card stack">
+    <h3>Créer utilisateur</h3>
+    <form method="post" autocomplete="off">
+      <input type="hidden" name="csrf" value="<?=$csrf?>">
+      <input type="hidden" name="action" value="create">
+      <div class="row">
+        <input name="email" placeholder="email" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <input type="password" name="password" placeholder="mot de passe (min 12)" autocomplete="new-password">
+      </div>
+      <button>Créer</button>
+    </form>
+  </section>
+
+  <section class="card stack">
+    <h3>Reset mot de passe</h3>
+    <form method="post" autocomplete="off">
+      <input type="hidden" name="csrf" value="<?=$csrf?>">
+      <input type="hidden" name="action" value="reset">
+      <div class="row">
+        <input name="id" placeholder="user id" autocomplete="off">
+        <input type="password" name="password" placeholder="nouveau mot de passe (min 12)" autocomplete="new-password">
+      </div>
+      <button>Reset</button>
+    </form>
+  </section>
+</main>
 </body>
+</html>

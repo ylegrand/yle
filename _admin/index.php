@@ -21,29 +21,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$u) {
 
 $flash = flash_get();
 ?>
-<!doctype html><meta charset="utf-8">
-<body style="font-family:system-ui;max-width:900px;margin:40px auto;">
-<h1>Admin</h1>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin</title>
+  <link rel="stylesheet" href="/assets/portal.css">
+</head>
+<body>
+<main class="container stack">
+  <section class="card stack">
+    <h1>Admin</h1>
 
-<?php if ($flash): ?>
-  <p style="padding:10px;border:1px solid #ddd;background:#fff;">
-    <b><?=h($flash['type'])?>:</b> <?=h($flash['msg'])?>
-  </p>
-<?php endif; ?>
+    <?php if ($flash): ?>
+      <p class="msg <?=h($flash['type'])?>"><b><?=h($flash['type'])?>:</b> <?=h($flash['msg'])?></p>
+    <?php endif; ?>
 
-<?php if (!$u): ?>
-  <?php if ($error): ?><p style="color:#b00;"><?=h($error)?></p><?php endif; ?>
-  <form method="post" autocomplete="off">
-    <input name="email" placeholder="email" style="width:100%" autocomplete="off"><br><br>
-    <input type="password" name="password" placeholder="mot de passe" style="width:100%" autocomplete="current-password"><br><br>
-    <button>Se connecter</button>
-  </form>
-<?php else: ?>
-  <p>Connecté: <b><?=h($u['email'])?></b> | <a href="/_admin/logout.php">Logout</a> | <a href="/">Accueil apps</a></p>
-  <ul>
-    <li><a href="/_admin/users.php">Utilisateurs</a></li>
-    <li><a href="/_admin/grants.php">Droits (user ↔ projets)</a></li>
-    <li><a href="/_admin/projects.php">Projets (sync)</a></li>
-  </ul>
-<?php endif; ?>
+    <?php if (!$u): ?>
+      <?php if ($error): ?><p class="msg error"><?=h($error)?></p><?php endif; ?>
+      <form method="post" autocomplete="off">
+        <div>
+          <label for="email">Email</label>
+          <input id="email" name="email" placeholder="email" autocomplete="off" autocapitalize="none" spellcheck="false">
+        </div>
+        <div>
+          <label for="password">Mot de passe</label>
+          <input id="password" type="password" name="password" placeholder="mot de passe" autocomplete="off">
+        </div>
+        <button>Se connecter</button>
+      </form>
+    <?php else: ?>
+      <p class="small">Connecté: <b><?=h($u['email'])?></b></p>
+      <nav class="nav-links">
+        <a href="/_admin/users.php">Utilisateurs</a>
+        <a href="/_admin/grants.php">Droits (user ↔ projets)</a>
+        <a href="/_admin/projects.php">Projets (sync)</a>
+        <a href="/">Accueil apps</a>
+        <a href="/_admin/logout.php">Logout</a>
+      </nav>
+    <?php endif; ?>
+  </section>
+</main>
 </body>
+</html>

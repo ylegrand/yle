@@ -30,9 +30,10 @@ if ($uri === '/') {
         exit;
     }
 
-    echo "<h1>Applications</h1>";
-    echo "<div>Connecté : " . h($user['email']) . "</div>";
-    echo "<a href='/_admin/'>Admin</a> | <a href='/_admin/logout.php'>Logout</a><hr>";
+    echo '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Applications</title><link rel="stylesheet" href="/assets/portal.css"></head><body><main class="container stack">';
+    echo '<section class="card stack">';
+    echo '<div class="topbar"><h1>Applications</h1><span class="badge">Connecté : ' . h($user['email']) . '</span></div>';
+    echo '<nav class="nav-links"><a href="/_admin/">Admin</a><a href="/_admin/logout.php">Logout</a></nav>';
 
     if (!empty($user['is_superadmin'])) {
         $rows = $pdo->query("SELECT slug FROM projects WHERE is_active=1 AND deleted_at IS NULL ORDER BY slug")->fetchAll();
@@ -50,9 +51,12 @@ if ($uri === '/') {
         $rows = $st->fetchAll();
     }
 
+    echo '<ul class="project-list">';
     foreach ($rows as $r) {
-        echo "<p><a href='/p/" . h($r['slug']) . "/'>" . h($r['slug']) . "</a></p>";
+        echo "<li><a href='/p/" . h($r['slug']) . "/'>" . h($r['slug']) . "</a></li>";
     }
+    echo "</ul>";
+    echo "</section></main></body></html>";
 
     exit;
 }

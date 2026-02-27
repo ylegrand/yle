@@ -92,30 +92,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Install</title></head>
-<body style="font-family:system-ui;max-width:720px;margin:40px auto;">
-<h1>Installation portail</h1>
-<p>Crée les tables et le super-admin.</p>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install</title>
+  <link rel="stylesheet" href="/assets/portal.css">
+</head>
+<body>
+<main class="container stack">
+  <section class="card stack">
+    <h1>Installation portail</h1>
+    <p class="small">Crée les tables et le super-admin.</p>
 
-<?php if ($done): ?>
-  <p style="padding:10px;background:#e7ffe7;border:1px solid #9be09b;">
-    OK. Va sur <a href="/_admin/">/_admin/</a>. Ensuite supprime/renomme <code>install.php</code>.
-  </p>
-<?php endif; ?>
+    <?php if ($done): ?>
+      <p class="msg ok">
+        OK. Va sur <a href="/_admin/">/_admin/</a>. Ensuite supprime/renomme <code>install.php</code>.
+      </p>
+    <?php endif; ?>
 
-<?php if ($errors): ?>
-  <ul style="padding:10px;background:#ffe7e7;border:1px solid #e09b9b;">
-    <?php foreach($errors as $er): ?><li><?=h($er)?></li><?php endforeach; ?>
-  </ul>
-<?php endif; ?>
+    <?php if ($errors): ?>
+      <ul class="msg error">
+        <?php foreach($errors as $er): ?><li><?=h($er)?></li><?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
 
-<form method="post" autocomplete="off">
-  <label>Email super-admin</label><br>
-  <input name="email" style="width:100%" value="<?=h($_POST['email']??'')?>" autocomplete="off"><br><br>
-  <label>Mot de passe (min 12)</label><br>
-  <input type="password" name="password" style="width:100%" autocomplete="new-password"><br><br>
-  <button>Installer</button>
-</form>
+    <form method="post" autocomplete="off">
+      <div>
+        <label for="email">Email super-admin</label>
+        <input id="email" name="email" value="<?=h($_POST['email']??'')?>" autocomplete="off" autocapitalize="none" spellcheck="false">
+      </div>
+      <div>
+        <label for="password">Mot de passe (min 12)</label>
+        <input id="password" type="password" name="password" autocomplete="new-password">
+      </div>
+      <button>Installer</button>
+    </form>
 
-<p><b>Note OVH :</b> si l’erreur mentionne <code>CREATE DATABASE</code>, crée la base <code><?=h($cfg['db_name'])?></code> dans l’interface OVH puis relance.</p>
-</body></html>
+    <p class="small"><b>Note OVH :</b> si l’erreur mentionne <code>CREATE DATABASE</code>, crée la base <code><?=h($cfg['db_name'])?></code> dans l’interface OVH puis relance.</p>
+  </section>
+</main>
+</body>
+</html>

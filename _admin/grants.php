@@ -54,48 +54,67 @@ if ($selectedUserId) {
   foreach ($st->fetchAll() as $r) $roles[(int)$r['project_id']] = $r['role'];
 }
 ?>
-<!doctype html><meta charset="utf-8">
-<body style="font-family:system-ui;max-width:1100px;margin:40px auto;">
-<p><a href="/_admin/">← Menu</a> | <a href="/">Accueil apps</a></p>
-<h2>Droits</h2>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Droits</title>
+  <link rel="stylesheet" href="/assets/portal.css">
+</head>
+<body>
+<main class="container stack">
+  <section class="card stack">
+    <div class="topbar">
+      <h2>Droits</h2>
+      <nav class="nav-links"><a href="/_admin/">← Menu</a><a href="/">Accueil apps</a></nav>
+    </div>
 
-<?php if ($flash): ?>
-  <p style="padding:10px;border:1px solid #ddd;background:#fff;"><b><?=h($flash['type'])?>:</b> <?=h($flash['msg'])?></p>
-<?php endif; ?>
+    <?php if ($flash): ?>
+      <p class="msg <?=h($flash['type'])?>"><b><?=h($flash['type'])?>:</b> <?=h($flash['msg'])?></p>
+    <?php endif; ?>
 
-<form method="get" autocomplete="off">
-  <label>Utilisateur: </label>
-  <select name="user_id">
-    <?php foreach($users as $x): ?>
-      <option value="<?=$x['id']?>" <?=$x['id']===$selectedUserId?'selected':''?>><?=h($x['email'])?></option>
-    <?php endforeach; ?>
-  </select>
-  <button>Charger</button>
-</form>
-
-<?php if ($selectedUserId): ?>
-<form method="post" autocomplete="off">
-  <input type="hidden" name="csrf" value="<?=$csrf?>">
-  <input type="hidden" name="user_id" value="<?=$selectedUserId?>">
-
-  <table border="1" cellpadding="8" cellspacing="0" style="margin-top:12px">
-    <tr><th>Projet</th><th>Rôle</th></tr>
-    <?php foreach($projects as $p): $rid=(int)$p['id']; ?>
-      <tr>
-        <td><?=h($p['slug'])?></td>
-        <td>
-          <select name="role_<?=$rid?>">
-            <option value="">(aucun accès)</option>
-            <?php foreach(['viewer','editor','admin'] as $r): ?>
-              <option value="<?=$r?>" <?=(($roles[$rid]??'')===$r)?'selected':''?>><?=$r?></option>
+    <form method="get" autocomplete="off">
+      <div class="row">
+        <div>
+          <label for="user_id">Utilisateur</label>
+          <select id="user_id" name="user_id">
+            <?php foreach($users as $x): ?>
+              <option value="<?=$x['id']?>" <?=$x['id']===$selectedUserId?'selected':''?>><?=h($x['email'])?></option>
             <?php endforeach; ?>
           </select>
-        </td>
-      </tr>
-    <?php endforeach; ?>
-  </table>
-  <br>
-  <button>Enregistrer</button>
-</form>
-<?php endif; ?>
+        </div>
+      </div>
+      <button>Charger</button>
+    </form>
+
+    <?php if ($selectedUserId): ?>
+    <form method="post" autocomplete="off">
+      <input type="hidden" name="csrf" value="<?=$csrf?>">
+      <input type="hidden" name="user_id" value="<?=$selectedUserId?>">
+
+      <div class="table-wrap">
+        <table>
+          <tr><th>Projet</th><th>Rôle</th></tr>
+          <?php foreach($projects as $p): $rid=(int)$p['id']; ?>
+            <tr>
+              <td><?=h($p['slug'])?></td>
+              <td>
+                <select name="role_<?=$rid?>">
+                  <option value="">(aucun accès)</option>
+                  <?php foreach(['viewer','editor','admin'] as $r): ?>
+                    <option value="<?=$r?>" <?=(($roles[$rid]??'')===$r)?'selected':''?>><?=$r?></option>
+                  <?php endforeach; ?>
+                </select>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </table>
+      </div>
+      <button>Enregistrer</button>
+    </form>
+    <?php endif; ?>
+  </section>
+</main>
 </body>
+</html>
