@@ -89,6 +89,7 @@ async function initPlay(){
   const set = got.set;
   const library = Array.isArray(set.items) ? set.items.filter(Boolean) : [];
   const N = library.length;
+  const beatCandidates = Array.isArray(window.__BEAT_CANDIDATES__) ? window.__BEAT_CANDIDATES__.filter(Boolean) : [];
 
   setTitle.textContent = set.title || setId;
 
@@ -133,10 +134,30 @@ async function initPlay(){
   const BEAT_OFFSET = Number(set.beatOffset ?? 0);
 
   // Optional per-set audio (if provided in set JSON)
+  const pickPlayableBeat = (urls) => {
+    const probe = document.createElement("audio");
+    const types = {
+      ".m4a": "audio/mp4",
+      ".ogg": "audio/ogg",
+      ".wav": "audio/wav"
+    };
+    for(const u of urls){
+      const ext = (u.match(/\.[a-z0-9]+(?:$|\?)/i)?.[0] || "").replace("?", "").toLowerCase();
+      const mime = types[ext] || "";
+      if(!mime) return u;
+      const ok = probe.canPlayType(mime);
+      if(ok === "probably" || ok === "maybe") return u;
+    }
+    return urls[0] || "";
+  };
+
   if(set.beatUrl){
     audioEl.src = assetUrl(set.beatUrl);
   } else if(set.beat){
     audioEl.src = assetUrl(set.beat);
+  } else {
+    const chosen = pickPlayableBeat(beatCandidates);
+    if(chosen) audioEl.src = chosen;
   }
 
   const collectAssetList = () => {
@@ -255,12 +276,14 @@ const fadeOutBeat = (durationSec) => {
   };
 
   const loadBeatBuffer = async () => {
-    if(beatBuffer) return beatBuffer;
     const url = getBeatUrl();
     if(!url) throw new Error("Audio URL missing");
+    if(beatBuffer && beatBufferUrl === url) return beatBuffer;
     const resp = await fetch(url, { cache: "force-cache" });
+    if(!resp.ok) throw new Error("Audio HTTP " + resp.status);
     const arr = await resp.arrayBuffer();
     beatBuffer = await ac.decodeAudioData(arr);
+    beatBufferUrl = url;
     return beatBuffer;
   };
 
@@ -439,8 +462,10 @@ btnStart.disabled = false;
     raf = null;
 
     stopBeat();
-    beatBuffer = null;
-    beatBufferUrl = "";
+    if(opts.closeAudio){
+      beatBuffer = null;
+      beatBufferUrl = "";
+    }
 
     // Reset timeline state
     startTime = null;

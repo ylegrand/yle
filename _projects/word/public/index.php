@@ -275,16 +275,25 @@ function page_foot(): void { global $BASE; ?>
 
 if ($p === 'play') {
   $set = htmlspecialchars($_GET['set'] ?? '');
-  $beatUrl = $BASE . '/assets/audio/beat.wav';
+  $beatBase = $BASE . '/assets/audio/beat';
+  $beatWav = $beatBase . '.wav';
+  $beatM4a = $beatBase . '.m4a';
+  $beatOgg = $beatBase . '.ogg';
   $extraHead = <<<HTML
-  <link rel="preload" as="audio" href="{$beatUrl}" crossorigin>
+  <link rel="preload" as="audio" href="{$beatM4a}" type="audio/mp4" crossorigin>
+  <link rel="preload" as="audio" href="{$beatOgg}" type="audio/ogg" crossorigin>
+  <link rel="preload" as="audio" href="{$beatWav}" type="audio/wav" crossorigin>
   <script>
   // Warm up cache ASAP (best-effort).
   (function(){
-    var u = "{$beatUrl}";
-    try{ fetch(u, {cache:'force-cache', mode:'same-origin'}).catch(function(){}); }catch(e){}
+    var list = ["{$beatM4a}", "{$beatOgg}", "{$beatWav}"];
+    list.forEach(function(u){
+      try{ fetch(u, {cache:'force-cache', mode:'same-origin'}).catch(function(){}); }catch(e){}
+    });
     if('caches' in window){
-      caches.open('say-on-beat-v1').then(function(c){ return c.add(u); }).catch(function(){});
+      caches.open('say-on-beat-v2').then(function(c){
+        return Promise.all(list.map(function(u){ return c.add(u).catch(function(){}); }));
+      }).catch(function(){});
     }
   })();
   </script>
@@ -328,12 +337,13 @@ HTML;
     </div>
   </div>
 
-  <audio id="beatAudio" src="<?= $BASE ?>/assets/audio/beat.wav" preload="auto" loop></audio>
+  <audio id="beatAudio" preload="metadata" loop></audio>
   <script>
     window.__BASE__ = "<?= $BASE ?>";
     window.__PAGE__ = "play";
     window.__BASE__ = "<?= $BASE ?>";
     window.__SET_ID__ = "<?= $set ?>";
+    window.__BEAT_CANDIDATES__ = ["<?= $beatM4a ?>", "<?= $beatOgg ?>", "<?= $beatWav ?>"];
   </script>
 <?php page_foot(); exit; }
 
