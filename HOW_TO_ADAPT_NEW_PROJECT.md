@@ -1,121 +1,130 @@
 # HOW_TO_ADAPT_NEW_PROJECT
 
-Ce portail expose des projets placés dans :
+Ce guide décrit **la façon conforme** d'ajouter un projet sans casser:
+- la sécurité du portail,
+- le routage `/p/<slug>/...`,
+- le chargement des assets.
 
-www/_projects/<nomprojet>/
+---
 
-et les rend accessibles via :
+## 0) Règles non négociables
 
-https://<domaine>/p/<nomprojet>/
-
-Le contrôle d’accès (login + droits par projet) est géré par le portail, pas par les projets.
+- Ne jamais contourner l'authentification du portail.
+- Ne jamais implémenter une auth locale concurrente dans un projet (sauf demande explicite).
+- Ne jamais supposer des URLs absolues racine (`/app.css`) pour les assets.
+- Ne jamais introduire de secrets en clair dans le dépôt.
 
 ---
 
 ## 1) Structure attendue côté projet
 
-### Cas recommandé (webroot = public)
-Le portail détecte automatiquement un dossier public/ et l’utilise comme racine web.
+### Cas recommandé (webroot = `public/`)
+Le portail détecte automatiquement `public/` et l'utilise comme racine web.
 
-Arbo minimale :
+Arbo minimale:
 
+```text
 www/_projects/<nomprojet>/
   public/
     index.php (ou index.html / index.htm)
     app.css
     app.js
     assets/
+```
 
-Accès :
-/p/<nomprojet>/ → public/index.php
-/p/<nomprojet>/app.css → public/app.css
-/p/<nomprojet>/assets/... → public/assets/...
+Accès:
+- `/p/<nomprojet>/` → `public/index.php`
+- `/p/<nomprojet>/app.css` → `public/app.css`
+- `/p/<nomprojet>/assets/...` → `public/assets/...`
 
----
+### Cas alternatif (sans `public/`)
+Si le projet n'a pas `public/`, la racine du projet devient webroot.
 
-### Cas alternatif (pas de public)
-Si ton projet n’a pas de dossier public/, le portail utilisera la racine du projet comme webroot.
-
+```text
 www/_projects/<nomprojet>/
   index.php
   app.css
   app.js
   assets/
+```
 
 ---
 
 ## 2) Gestion des assets
 
-### Recommandé (chemins relatifs)
+### Recommandé: chemins relatifs
+
+```html
 <link rel="stylesheet" href="app.css?v=1">
 <script src="app.js?v=1"></script>
-<img src="assets/logo.png">
+<img src="assets/logo.png" alt="logo">
+```
 
----
+### Variante PHP avec `BASE`
 
-### Variante PHP avec BASE
+```php
 <?php
 $BASE = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 if ($BASE === '') $BASE = '/';
 ?>
 <script src="<?= $BASE ?>/app.js"></script>
+```
 
-Le routeur du portail corrige automatiquement SCRIPT_NAME.
+Le routeur du portail corrige `SCRIPT_NAME` pour ce cas.
 
 ---
 
 ## 3) Entrypoint
 
-Le portail sert automatiquement :
-- index.php
-- index.html
-- index.htm
+Le portail sert automatiquement:
+- `index.php`
+- `index.html`
+- `index.htm`
 
 Un projet doit contenir au moins un de ces fichiers.
 
 ---
 
-## 4) Ajout d’un projet (checklist)
+## 4) Checklist d'ajout (obligatoire)
 
-1. Créer le dossier  
-www/_projects/<nomprojet>/
-
-2. Ajouter public/ (recommandé)  
-public/index.php
-
-3. Ajouter les assets  
-public/app.css  
-public/app.js  
-public/assets/
-
-4. Ajouter un favicon (optionnel)  
-public/favicon.ico
-
-5. Synchroniser dans l’admin  
-/_admin/projects.php
-
-6. Donner les droits  
-/_admin/grants.php
-
-7. Tester  
-/ p / <nomprojet> /
+1. Créer `www/_projects/<nomprojet>/`.
+2. Ajouter `public/` (recommandé) et l'entrée du projet.
+3. Ajouter les assets dans `public/`.
+4. Synchroniser les projets via `/_admin/projects.php`.
+5. Donner les droits via `/_admin/grants.php`.
+6. Tester avec un utilisateur **autorisé** puis **non autorisé**.
+7. Vérifier que tous les assets passent via `/p/<nomprojet>/...`.
 
 ---
 
-## 5) À éviter
+## 5) ACL (besoin métier actuel)
 
-URLs absolues /app.css  
-Auth locale dans le projet  
-accès direct _projects/...
+Le besoin est binaire:
+- "a accès" ⇒ rôle `viewer`
+- "n'a pas accès" ⇒ aucun rôle
+
+Conserver `editor/admin` pour compatibilité technique, sans les imposer côté métier.
 
 ---
 
-## 6) Dépannage
+## 6) À éviter
 
-Assets 404
-- vérifier emplacement dans public/
-- vérifier chemins relatifs
+- URLs absolues racine (`/app.css`, `/app.js`, ...).
+- Auth locale parallèle.
+- Dépendances serveur incompatibles mutualisé.
+- Accès direct non contrôlé aux secrets/fichiers sensibles.
 
-Page Not found
-- vérifier index.php ou index.html
-- relancer la synchro admin
+---
+
+## 7) Dépannage rapide
+
+### Assets 404
+- Vérifier emplacement dans `public/`.
+- Vérifier chemins relatifs ou calcul `BASE`.
+- Vérifier l'URL finale via `/p/<slug>/...`.
+
+### Page `Not found`
+- Vérifier présence de `index.php|html|htm`.
+- Vérifier que le projet est synchronisé en admin.
+- Vérifier les droits utilisateur sur le projet.
+
