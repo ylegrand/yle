@@ -23,11 +23,15 @@ function start_session(array $cfg): void {
 
 function current_user(PDO $pdo): ?array {
   if (empty($_SESSION['uid'])) return null;
-  $st = $pdo->prepare("SELECT id,email,is_superadmin,is_active FROM users WHERE id=?");
+  $st = $pdo->prepare("SELECT id,email,CAST(is_superadmin AS UNSIGNED) AS is_superadmin,CAST(is_active AS UNSIGNED) AS is_active FROM users WHERE id=?");
   $st->execute([$_SESSION['uid']]);
   $u = $st->fetch();
-  if (!$u || !$u['is_active']) return null;
+  if (!$u || (int)$u['is_active'] !== 1) return null;
   return $u;
+}
+
+function is_superadmin(array $user): bool {
+  return ((int)($user['is_superadmin'] ?? 0)) === 1;
 }
 
 function require_login(PDO $pdo, string $redirect = '/_admin/'): array {
@@ -40,10 +44,10 @@ function require_login(PDO $pdo, string $redirect = '/_admin/'): array {
 }
 
 function login(PDO $pdo, string $email, string $pass): bool {
-  $st = $pdo->prepare("SELECT id,password_hash,is_active FROM users WHERE email=?");
+  $st = $pdo->prepare("SELECT id,password_hash,CAST(is_active AS UNSIGNED) AS is_active FROM users WHERE email=?");
   $st->execute([$email]);
   $u = $st->fetch();
-  if (!$u || !$u['is_active']) return false;
+  if (!$u || (int)$u['is_active'] !== 1) return false;
   if (!password_verify($pass, $u['password_hash'])) return false;
 
   session_regenerate_id(true);

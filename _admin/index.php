@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$u) {
   else { header('Location: /'); exit; }
 }
 
-if ($u && empty($u['is_superadmin'])) {
+if ($u && !is_superadmin($u)) {
   header('Location: /');
   exit;
 }

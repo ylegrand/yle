@@ -16,7 +16,7 @@ function user_role_for_project(PDO $pdo, int $userId, string $slug): ?string {
 }
 
 function require_project_role(PDO $pdo, array $user, string $slug, string $minRole='viewer'): void {
-  if (!empty($user['is_superadmin'])) return;
+  if (is_superadmin($user)) return;
   $r = user_role_for_project($pdo, (int)$user['id'], $slug);
   if (!$r || role_rank($r) < role_rank($minRole)) {
     http_response_code(403);

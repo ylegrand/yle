@@ -8,7 +8,7 @@ require __DIR__ . '/../_app/flash.php';
 $pdo = db($cfg);
 start_session($cfg);
 $u = require_login($pdo);
-if (empty($u['is_superadmin'])) { http_response_code(403); exit("Forbidden"); }
+if (!is_superadmin($u)) { http_response_code(403); exit("Forbidden"); }
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $csrf = csrf_token($pdo, $me);
 $flash = flash_get();
-$users = $pdo->query("SELECT id,email,is_superadmin,is_active,last_login FROM users ORDER BY is_superadmin DESC, email")->fetchAll();
+$users = $pdo->query("SELECT id,email,CAST(is_superadmin AS UNSIGNED) AS is_superadmin,CAST(is_active AS UNSIGNED) AS is_active,last_login FROM users ORDER BY is_superadmin DESC, email")->fetchAll();
 ?>
 <!doctype html>
 <html lang="fr">
@@ -95,16 +95,16 @@ $users = $pdo->query("SELECT id,email,is_superadmin,is_active,last_login FROM us
         <tr>
           <td><?=h($x['id'])?></td>
           <td><?=h($x['email'])?></td>
-          <td><?= $x['is_superadmin'] ? 'oui' : 'non' ?></td>
-          <td><?= $x['is_active'] ? 'oui' : 'non' ?></td>
+          <td><?= ((int)$x['is_superadmin'] === 1) ? 'oui' : 'non' ?></td>
+          <td><?= ((int)$x['is_active'] === 1) ? 'oui' : 'non' ?></td>
           <td><?=h($x['last_login'] ?? '')?></td>
           <td>
-            <?php if (!$x['is_superadmin']): ?>
+            <?php if ((int)$x['is_superadmin'] !== 1): ?>
             <form method="post" class="inline-form" autocomplete="off">
               <input type="hidden" name="csrf" value="<?=$csrf?>">
               <input type="hidden" name="action" value="toggle">
               <input type="hidden" name="id" value="<?=h($x['id'])?>">
-              <button><?= $x['is_active'] ? 'Désactiver' : 'Activer' ?></button>
+              <button><?= ((int)$x['is_active'] === 1) ? 'Désactiver' : 'Activer' ?></button>
             </form>
             <?php endif; ?>
           </td>

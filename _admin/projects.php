@@ -8,7 +8,7 @@ require __DIR__ . '/../_app/flash.php';
 $pdo = db($cfg);
 start_session($cfg);
 $u = require_login($pdo);
-if (empty($u['is_superadmin'])) { http_response_code(403); exit("Forbidden"); }
+if (!is_superadmin($u)) { http_response_code(403); exit("Forbidden"); }
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
