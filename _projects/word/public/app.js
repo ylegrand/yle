@@ -169,10 +169,21 @@ async function initPlay(){
     const { imgs } = collectAssetList();
     showLoading("Chargement du set…", "Préparation des images et de la musique");
 
-    // 1) fetch + decode audio once (guarantee playable on Start)
+    // 1) warm audio file in HTTP cache without touching AudioContext.
+    //    On refresh, trying to resume WebAudio here can hang until user gesture.
     try{
-      await ensureAudio();
-      await loadBeatBuffer(); // will fetch+decode, or throw if missing/corrupt
+      const beatUrl = getBeatUrl();
+      if(!beatUrl) throw new Error("Audio URL missing");
+
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 8000);
+      try{
+        const resp = await fetch(beatUrl, { cache: "force-cache", signal: ctrl.signal });
+        if(!resp.ok) throw new Error("Audio HTTP " + resp.status);
+        await resp.arrayBuffer();
+      } finally {
+        clearTimeout(timeoutId);
+      }
     } catch (e){
       throw new Error("Audio: " + (e?.message || e));
     }
@@ -195,8 +206,18 @@ async function initPlay(){
       try{
         const ok = await new Promise(resolve => {
           const im = new Image();
-          im.onload = () => resolve(true);
-          im.onerror = () => resolve(false);
+          let settled = false;
+          const finish = (val) => {
+            if(settled) return;
+            settled = true;
+            clearTimeout(timer);
+            im.onload = null;
+            im.onerror = null;
+            resolve(val);
+          };
+          const timer = setTimeout(() => finish(false), 8000);
+          im.onload = () => finish(true);
+          im.onerror = () => finish(false);
           im.src = u;
         });
         if(!ok) missing.push(u);
