@@ -56,7 +56,11 @@ if ($uri === '/') {
   </header>';
     echo '<section class="card stack">';
     echo '<div class="topbar"><h1>Applications</h1><span class="badge">Connecté : ' . h($user['email']) . '</span></div>';
-    echo '<nav class="nav-links"><a href="/_admin/">Admin</a><a href="/_admin/logout.php">Logout</a></nav>';
+    echo '<nav class="nav-links">';
+    if (!empty($user['is_superadmin'])) {
+        echo '<a href="/_admin/">Admin</a>';
+    }
+    echo '<a href="/_admin/logout.php">Logout</a></nav>';
 
     if (!empty($user['is_superadmin'])) {
         $rows = $pdo->query("SELECT slug FROM projects WHERE is_active=1 AND deleted_at IS NULL ORDER BY slug")->fetchAll();

@@ -16,7 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$u) {
   $email = trim($_POST['email'] ?? '');
   $pass  = $_POST['password'] ?? '';
   if (!login($pdo, $email, $pass)) $error = "Login incorrect ou compte inactif";
-  else { header('Location: /_admin/users.php'); exit; }
+  else { header('Location: /'); exit; }
+}
+
+if ($u && empty($u['is_superadmin'])) {
+  header('Location: /');
+  exit;
 }
 
 $flash = flash_get();
