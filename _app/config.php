@@ -65,6 +65,7 @@ return [
   'db_name' => env_value('DB_NAME', ''),
   'db_user' => env_value('DB_USER', ''),
   'db_pass' => env_value('DB_PASS', ''),
+  'share_token_secret' => env_value('SHARE_TOKEN_SECRET', ''),
 
   // sécurité cookies session
   'cookie_secure' => env_bool('COOKIE_SECURE', $appEnv === 'prod' ? true : $httpsDetected),
