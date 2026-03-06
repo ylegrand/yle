@@ -124,7 +124,6 @@ if ($p === 'api') {
     if ($id === '') {
       $id = generate_set_id($title, $SETS_DIR);
     }
-    if (count($items) < 1) json_response(['ok'=>false,'error'=>'items must be >= 1'], 400);
 
     $normItems = [];
     foreach ($items as $it) {
@@ -416,3 +415,4 @@ page_head('Catalogue', '', 'home'); ?>
   window.__PAGE__ = "home";
   window.__BASE__ = "<?= $BASE ?>";</script>
 <?php page_foot();
+

@@ -5,6 +5,7 @@ header('X-Content-Type-Options: nosniff');
 
 $DATA_DIR = getenv('WHICH_DATA_DIR') ?: (realpath(__DIR__ . '/../data') ?: __DIR__ . '/../data');
 $SETS_DIR = $DATA_DIR . '/sets';
+$SHARE_TOKEN_SECRET = (string)(getenv('SHARE_TOKEN_SECRET') ?: '');
 $BASE = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 if ($BASE === '') {
     $BASE = '/';
@@ -15,7 +16,7 @@ $shareSet = (string)($_SERVER['PORTAL_TEMP_SET'] ?? '');
 $shareExp = (int)($_SERVER['PORTAL_TEMP_EXP'] ?? 0);
 $shareToken = (string)($_GET['st'] ?? '');
 
-function h(?string $value): string {
+function wh_h(?string $value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 
@@ -174,6 +175,14 @@ function project_base_url(string $base): string {
     return $scheme . '://' . $host . $base;
 }
 
+function append_share_token_to_url(string $url, string $token): string {
+    if ($token === '') {
+        return $url;
+    }
+    $sep = str_contains($url, '?') ? '&' : '?';
+    return $url . $sep . 'st=' . rawurlencode($token);
+}
+
 function b64url_encode(string $value): string {
     return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
 }
@@ -255,10 +264,6 @@ if ($p === 'api') {
 
         if ($id === '') {
             $id = generate_set_id($title, $SETS_DIR);
-        }
-
-        if (count($items) < 1) {
-            json_response(['ok' => false, 'error' => 'At least one item is required'], 400);
         }
 
         $normalized = [];
@@ -386,7 +391,46 @@ if ($p === 'api') {
 
         $filename = $itemId . '.' . $ext;
         $absolute = $absDir . '/' . $filename;
-        if (!move_uploaded_file($tmpPath, $absolute)) {
+
+        $saved = false;
+        $raw = @file_get_contents($tmpPath);
+        if ($raw !== false && function_exists('imagecreatefromstring')) {
+            $source = @imagecreatefromstring($raw);
+            if ($source !== false) {
+                $srcW = imagesx($source);
+                $srcH = imagesy($source);
+                $dstW = $srcW > 1024 ? 1024 : $srcW;
+                $dstH = $srcW > 0 ? (int)round(($srcH * $dstW) / $srcW) : $srcH;
+
+                $target = $source;
+                if ($srcW > 1024 && $dstW > 0 && $dstH > 0) {
+                    $target = imagecreatetruecolor($dstW, $dstH);
+                    if ($target !== false) {
+                        if (in_array($ext, ['png', 'gif', 'webp'], true)) {
+                            imagealphablending($target, false);
+                            imagesavealpha($target, true);
+                            $transparent = imagecolorallocatealpha($target, 0, 0, 0, 127);
+                            imagefilledrectangle($target, 0, 0, $dstW, $dstH, $transparent);
+                        }
+                        imagecopyresampled($target, $source, 0, 0, 0, 0, $dstW, $dstH, $srcW, $srcH);
+                    }
+                }
+
+                $saved = match ($ext) {
+                    'png' => function_exists('imagepng') ? @imagepng($target, $absolute, 6) : false,
+                    'gif' => function_exists('imagegif') ? @imagegif($target, $absolute) : false,
+                    'webp' => function_exists('imagewebp') ? @imagewebp($target, $absolute, 82) : false,
+                    default => function_exists('imagejpeg') ? @imagejpeg($target, $absolute, 85) : false,
+                };
+
+                if ($target !== $source) {
+                    imagedestroy($target);
+                }
+                imagedestroy($source);
+            }
+        }
+
+        if (!$saved && !move_uploaded_file($tmpPath, $absolute)) {
             json_response(['ok' => false, 'error' => 'Move failed'], 500);
         }
 
@@ -407,12 +451,11 @@ if ($p === 'api') {
             json_response(['ok' => false, 'error' => 'Not found'], 404);
         }
 
-        $secret = (string)($cfg['share_token_secret'] ?? getenv('SHARE_TOKEN_SECRET') ?: '');
-        if ($secret === '') {
+        if ($SHARE_TOKEN_SECRET === '') {
             json_response(['ok' => false, 'error' => 'SHARE_TOKEN_SECRET is not configured'], 500);
         }
 
-        $tokenData = create_share_token($secret, 'which', $id, 1800);
+        $tokenData = create_share_token($SHARE_TOKEN_SECRET, 'which', $id, 1800);
         $baseUrl = project_base_url($BASE);
         $url = $baseUrl . '/?p=play&set=' . rawurlencode($id) . '&st=' . rawurlencode($tokenData['token']);
 
@@ -437,54 +480,48 @@ if ($p === 'play') {
         http_response_code(403);
         exit('Forbidden');
     }
+    $cssHref = append_share_token_to_url($BASE . '/app.css?v=1', $shareMode ? $shareToken : '');
+    $jsHref = append_share_token_to_url($BASE . '/app.js?v=1', $shareMode ? $shareToken : '');
     ?>
 <!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Which - Jeu</title>
-  <link rel="stylesheet" href="<?= h($BASE) ?>/app.css?v=1">
+  <title>Qui est tu ? - Jeu</title>
+  <link rel="stylesheet" href="<?= wh_h($cssHref) ?>">
 </head>
 <body data-page="play">
   <main class="wrap">
     <header class="top">
-      <h1>Which</h1>
+      <h1>Qui est tu ?</h1>
       <?php if (!$shareMode): ?>
       <nav>
-        <a href="<?= h($BASE) ?>/?p=home">Sets</a>
-        <a href="<?= h($BASE) ?>/?p=admin">Admin</a>
+        <a href="<?= wh_h($BASE) ?>/?p=home">Sets</a>
+        <a href="<?= wh_h($BASE) ?>/?p=admin">Admin</a>
       </nav>
       <?php endif; ?>
     </header>
 
     <section class="card play-card">
-      <div class="play-head">
-        <div>
-          <div class="muted">Set</div>
-          <div id="setTitle" class="strong">Chargement...</div>
-        </div>
-        <div id="playState" class="badge">Défilement</div>
-      </div>
-
       <button id="playStage" class="stage" type="button" aria-label="Basculer pause et lecture">
         <img id="playImage" alt="">
-        <div id="playHint" class="hint">Clique pour figer et voir la légende</div>
+        <div id="playHint" class="hint"></div>
         <div id="playCaption" class="caption" hidden></div>
       </button>
     </section>
   </main>
 
   <script>
-    window.__BASE__ = "<?= h($BASE) ?>";
+    window.__BASE__ = "<?= wh_h($BASE) ?>";
     window.__PAGE__ = "play";
-    window.__SET_ID__ = "<?= h($setId) ?>";
-    window.__SHARE_TOKEN__ = "<?= h($shareToken) ?>";
+    window.__SET_ID__ = "<?= wh_h($setId) ?>";
+    window.__SHARE_TOKEN__ = "<?= wh_h($shareToken) ?>";
     window.__SHARE_MODE__ = <?= $shareMode ? 'true' : 'false' ?>;
-    window.__SHARE_SET__ = "<?= h($shareSet) ?>";
+    window.__SHARE_SET__ = "<?= wh_h($shareSet) ?>";
     window.__SHARE_EXP__ = <?= (int)$shareExp ?>;
   </script>
-  <script src="<?= h($BASE) ?>/app.js?v=1"></script>
+  <script src="<?= wh_h($jsHref) ?>"></script>
 </body>
 </html>
 <?php
@@ -492,22 +529,24 @@ if ($p === 'play') {
 }
 
 $csrf = csrf_issue_token();
+$cssHref = append_share_token_to_url($BASE . '/app.css?v=1', $shareMode ? $shareToken : '');
+$jsHref = append_share_token_to_url($BASE . '/app.js?v=1', $shareMode ? $shareToken : '');
 ?>
 <!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Which</title>
-  <link rel="stylesheet" href="<?= h($BASE) ?>/app.css?v=1">
+  <title>Qui est tu ?</title>
+  <link rel="stylesheet" href="<?= wh_h($cssHref) ?>">
 </head>
-<body data-page="<?= h($p) ?>">
+<body data-page="<?= wh_h($p) ?>">
   <main class="wrap">
     <header class="top">
-      <h1>Which</h1>
+      <h1>Qui est tu ?</h1>
       <nav>
-        <a href="<?= h($BASE) ?>/?p=home">Sets</a>
-        <a href="<?= h($BASE) ?>/?p=admin">Admin</a>
+        <a href="<?= wh_h($BASE) ?>/?p=home">Sets</a>
+        <a href="<?= wh_h($BASE) ?>/?p=admin">Admin</a>
       </nav>
     </header>
 
@@ -518,6 +557,10 @@ $csrf = csrf_issue_token();
         <button id="btnNewSet" class="btn" type="button">Nouveau set</button>
       </div>
       <p class="muted">CRUD simple: sets et items (image + légende).</p>
+      <div class="row admin-toolbar">
+        <input id="setSearch" class="input-search" placeholder="Rechercher un set (titre ou ID)" type="search" autocomplete="off">
+        <div id="adminStatus" class="status-pill status-ok">Prêt</div>
+      </div>
 
       <div class="layout">
         <aside>
@@ -540,7 +583,7 @@ $csrf = csrf_issue_token();
             <div id="itemsEditor"></div>
 
             <div class="row">
-              <button class="btn" type="submit">Enregistrer</button>
+              <button class="btn" id="btnSaveSet" type="submit">Enregistrer</button>
               <button class="btn danger" id="btnDeleteSet" type="button">Supprimer</button>
               <a class="btn ghost" id="btnPlay" href="#">Jouer</a>
               <button class="btn ghost" id="btnShare" type="button">Lien 30 min + QR</button>
@@ -569,7 +612,7 @@ $csrf = csrf_issue_token();
     <section class="card">
       <div class="row between">
         <h2>Sets</h2>
-        <a class="btn ghost" href="<?= h($BASE) ?>/?p=admin">Gérer</a>
+        <a class="btn ghost" href="<?= wh_h($BASE) ?>/?p=admin">Gérer</a>
       </div>
       <div id="homeSets" class="cards">Chargement...</div>
     </section>
@@ -577,14 +620,29 @@ $csrf = csrf_issue_token();
   </main>
 
   <script>
-    window.__BASE__ = "<?= h($BASE) ?>";
-    window.__PAGE__ = "<?= h($p) ?>";
-    window.__CSRF__ = "<?= h($csrf) ?>";
+    window.__BASE__ = "<?= wh_h($BASE) ?>";
+    window.__PAGE__ = "<?= wh_h($p) ?>";
+    window.__CSRF__ = "<?= wh_h($csrf) ?>";
     window.__SHARE_TOKEN__ = "";
     window.__SHARE_MODE__ = false;
     window.__SHARE_SET__ = "";
     window.__SHARE_EXP__ = 0;
   </script>
-  <script src="<?= h($BASE) ?>/app.js?v=1"></script>
+  <script src="<?= wh_h($jsHref) ?>"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

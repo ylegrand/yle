@@ -666,107 +666,67 @@ async function initAdmin(){
   const btnDelete = el("#btnDeleteSet");
   const btnPreview = el("#btnPreview");
 
-  const cropModal = el("#cropModal");
-  const cropImage = el("#cropImage");
-  const btnCropClose = el("#btnCropClose");
-  const btnCropSave = el("#btnCropSave");
-  let cropper = null;
-  let cropTarget = null;
+  let current = {id:"",title:"",bpm:185,beatsPerGame:64,items:[]};
 
-  const defaultItems = (count = 4) => Array.from({length:count}).map((_,i)=>({id:`i${i+1}`,label:"",img:""}));
+  const pendingUploads = new Map();
+  const pendingPreview = new Map();
 
-  let current = {id:"",title:"",bpm:185,beatsPerGame:64,items: defaultItems()};
+  const toast = (msg) => alert(msg);
 
-// Images en attente quand le set n'est pas encore persisté (pas d'ID serveur)
-const pendingUploads = new Map();   // itemId -> Blob (webp)
-const pendingPreview = new Map();   // itemId -> objectURL (blob:)
+  function clearPendingImage(itemId){
+    const old = pendingPreview.get(itemId);
+    if(old) URL.revokeObjectURL(old);
+    pendingPreview.delete(itemId);
+    pendingUploads.delete(itemId);
+  }
 
-function hasPending(itemId){ return pendingUploads.has(itemId); }
-function pendingUrl(itemId){ return pendingPreview.get(itemId) || ""; }
+  function clearAllPending(){
+    for(const id of Array.from(pendingPreview.keys())) clearPendingImage(id);
+  }
 
-function setPendingImage(itemId, blob){
-  // Remplace l'image en attente pour cet item
-  const old = pendingPreview.get(itemId);
-  if(old) URL.revokeObjectURL(old);
+  function normalizeItems(items){
+    return (items || []).map((it, i)=>( {
+      id: (it.id || `i${i+1}`).toString(),
+      label: (it.label || "").toString(),
+      img: (it.img || "").toString(),
+    }));
+  }
 
-  const url = URL.createObjectURL(blob);
-  pendingUploads.set(itemId, blob);
-  pendingPreview.set(itemId, url);
-}
+  function createItemId(){
+    return "i" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  }
 
-function clearPendingImage(itemId){
-  const old = pendingPreview.get(itemId);
-  if(old) URL.revokeObjectURL(old);
-  pendingPreview.delete(itemId);
-  pendingUploads.delete(itemId);
-}
+  function filenameToLabel(name){
+    return (name || "").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+  }
 
-function clearAllPending(){
-  for(const id of Array.from(pendingPreview.keys())) clearPendingImage(id);
-}
+  function setCurrent(next){
+    current = {
+      id: next.id || "",
+      title: next.title || "",
+      bpm: Number(next.bpm || 185),
+      beatsPerGame: Number(next.beatsPerGame || 64),
+      items: normalizeItems(next.items || [])
+    };
+    fillForm();
+  }
 
-
-
-function renderItems(){
-  const rows = current.items.map((it, idx)=>{
-    const preview = pendingUrl(it.id) || it.img;
-    const pending = hasPending(it.id);
-
-    return `
-    <div class="itemrow" data-idx="${idx}">
-      <div class="itemrow__img">
-        ${preview ? `<img src="${esc(assetUrl(preview))}" alt="">` : `<div class="placeholder">+</div>`}
-      </div>
-      <div class="itemrow__fields">
-        <div class="row gap">
-          <label class="field grow">
-            <div class="field__label">Label ${idx+1}</div>
-            <input data-kind="label" data-idx="${idx}" value="${esc(it.label)}" placeholder="Mot / texte">
-          </label>
-          <label class="field">
-            <div class="field__label">Image</div>
-            <input data-kind="file" data-idx="${idx}" type="file" accept="image/*">
-          </label>
-          <div class="field">
-            <div class="field__label">&nbsp;</div>
-            <button type="button" class="btn btn--danger" data-action="remove-item" data-idx="${idx}" ${current.items.length<=1?'disabled':''}>Suppr.</button>
-          </div>
-        </div>
-        <div class="muted small">
-          ${pending ? "Image en attente (sera uploadée à l'enregistrement)" : esc(it.img || "")}
-        </div>
-      </div>
-    </div>
-  `;
-  }).join("");
-
-  itemsEditor.innerHTML = `
-    <div class="row between center" style="gap:10px; margin-bottom:10px;">
-      <div class="strong">Entrées (${current.items.length})</div>
-      <div class="row gap" style="flex-wrap:wrap;">
-        <button type="button" class="btn" data-action="add-item">+ Ajouter</button>
-      </div>
-    </div>
-    <div class="items">${rows || `<div class="muted">Aucune entrée. Ajoute-en une.</div>`}</div>
-  `;
-}
-
-
-function fillForm(){
-
+  function fillForm(){
     form.id.value = current.id || "";
     form.title.value = current.title || "";
     form.bpm.value = current.bpm ?? 185;
     form.beatsPerGame.value = current.beatsPerGame ?? 64;
-if(current.id){
-  btnPreview.href = `${BASE}/?p=play&set=${encodeURIComponent(current.id)}`;
-  btnPreview.classList.remove("is-disabled");
-  btnPreview.setAttribute("aria-disabled", "false");
-} else {
-  btnPreview.href = "#";
-  btnPreview.classList.add("is-disabled");
-  btnPreview.setAttribute("aria-disabled", "true");
-}
+
+    if(current.id){
+      btnPreview.href = `${BASE}/?p=play&set=${encodeURIComponent(current.id)}`;
+      btnPreview.classList.remove("is-disabled");
+      btnPreview.setAttribute("aria-disabled", "false");
+    } else {
+      btnPreview.href = "#";
+      btnPreview.classList.add("is-disabled");
+      btnPreview.setAttribute("aria-disabled", "true");
+    }
+
     renderItems();
   }
 
@@ -775,6 +735,86 @@ if(current.id){
     current.title = form.title.value.trim();
     current.bpm = Number(form.bpm.value || 185);
     current.beatsPerGame = Number(form.beatsPerGame.value || 64);
+    current.items = normalizeItems(current.items);
+  }
+
+  function renderItems(){
+    const canAdd = !!current.id;
+    const rows = current.items.map((it, idx)=>{
+      const preview = pendingPreview.get(it.id) || (it.img ? assetUrl(it.img) : "");
+      const pending = pendingUploads.has(it.id);
+      return `
+      <tr data-idx="${idx}">
+        <td class="col-preview">${preview ? `<img src="${esc(preview)}" alt="">` : `<span class="muted">-</span>`}</td>
+        <td class="col-label"><input data-kind="label" data-idx="${idx}" value="${esc(it.label)}" placeholder="Libellé"></td>
+        <td class="col-status">${pending ? '<span class="status-chip">En attente</span>' : '<span class="muted">OK</span>'}</td>
+        <td class="col-actions"><button type="button" class="btn btn--danger" data-action="remove-item" data-idx="${idx}">Supprimer</button></td>
+      </tr>`;
+    }).join("");
+
+    itemsEditor.innerHTML = `
+      <div class="items-toolbar">
+        <button type="button" class="btn" id="btnAddImages" ${canAdd ? '' : 'disabled'}>Ajouter image(s)</button>
+        <input id="inputAddImages" type="file" accept="image/*" multiple hidden>
+        <span class="muted">${canAdd ? `${current.items.length} image(s)` : `Créez le set puis enregistrez pour ajouter des images`}</span>
+      </div>
+      <div class="items-table-wrap">
+        <table class="items-table">
+          <thead><tr><th>Image</th><th>Libellé</th><th>Etat</th><th>Action</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="4" class="muted">Aucune image. Cliquez sur "Ajouter image(s)".</td></tr>`}</tbody>
+        </table>
+      </div>`;
+
+    const btnAddImages = el("#btnAddImages", itemsEditor);
+    const inputAddImages = el("#inputAddImages", itemsEditor);
+    btnAddImages?.addEventListener("click", ()=>{
+      if(!current.id){
+        toast("Enregistrez d'abord le set, puis ajoutez les images.");
+        return;
+      }
+      inputAddImages?.click();
+    });
+    inputAddImages?.addEventListener("change", ()=> addFiles(inputAddImages.files));
+  }
+
+  async function addFiles(fileList){
+    if(!current.id){
+      toast("Enregistrez d'abord le set, puis ajoutez les images.");
+      return;
+    }
+    const files = Array.from(fileList || []).filter(f => f && /^image\//i.test(f.type || ""));
+    if(!files.length) return;
+
+    for(const file of files){
+      const itemId = createItemId();
+      const row = {id:itemId, label: filenameToLabel(file.name), img:""};
+      current.items.push(row);
+
+      const fd = new FormData();
+      fd.append("file", file, file.name || `${itemId}.webp`);
+      const up = await API("upload_image", {set: current.id, item: itemId}, fd, true);
+      if(up.ok){
+        row.img = up.url;
+      } else {
+        pendingUploads.set(itemId, file);
+        pendingPreview.set(itemId, URL.createObjectURL(file));
+      }
+    }
+    renderItems();
+  }
+
+  async function uploadPendingFiles(){
+    if(!current.id || pendingUploads.size === 0) return;
+    for(const [itemId, file] of Array.from(pendingUploads.entries())){
+      const fd = new FormData();
+      fd.append("file", file, file.name || `${itemId}.webp`);
+      const up = await API("upload_image", {set: current.id, item: itemId}, fd, true);
+      if(up.ok){
+        const it = current.items.find(x => x.id === itemId);
+        if(it) it.img = up.url;
+        clearPendingImage(itemId);
+      }
+    }
   }
 
   async function refreshList(){
@@ -800,89 +840,30 @@ if(current.id){
   async function loadSet(id){
     const res = await API("get_set", {id});
     if(!res.ok){ alert("Set introuvable"); return; }
-    current = res.set;
     clearAllPending();
-    if(!Array.isArray(current.items) || current.items.length === 0) current.items = defaultItems();
-    fillForm();
+    setCurrent(res.set);
   }
 
   function newSet(){
-    current = {id:"",title:"",bpm:185,beatsPerGame:64,items:defaultItems()};
     clearAllPending();
-    fillForm();
+    setCurrent({id:"",title:"",bpm:185,beatsPerGame:64,items:[]});
   }
-
-  function openCrop(file, itemIdx){
-    const url = URL.createObjectURL(file);
-    cropImage.src = url;
-    cropModal.hidden = false;
-    setTimeout(()=>{
-      if(cropper) cropper.destroy();
-      cropper = new Cropper(cropImage, { aspectRatio: 1, viewMode: 1, autoCropArea: 1, background: false });
-    }, 0);
-    cropTarget = { itemIdx, objectURL: url };
-  }
-
-  function closeCrop(){
-    if(cropper){ cropper.destroy(); cropper = null; }
-    if(cropTarget?.objectURL) URL.revokeObjectURL(cropTarget.objectURL);
-    cropTarget = null;
-    cropModal.hidden = true;
-  }
-
-
-async function saveCrop(){
-  if(!cropper) return;
-
-  // Note: l'ID du set peut être vide tant qu'on n'a pas "Enregistré".
-  readFormToCurrent();
-
-  const canvas = cropper.getCroppedCanvas({ width: 512, height: 512 });
-  const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/webp", 0.9));
-  if(!blob){ alert("Erreur crop"); return; }
-
-  const item = current.items[cropTarget.itemIdx];
-  const itemId = item.id || `i${cropTarget.itemIdx+1}`;
-  current.items[cropTarget.itemIdx].id = itemId;
-
-  // Si le set n'a pas encore d'ID (pas persisté), on stocke l'image en attente
-  if(!current.id){
-    setPendingImage(itemId, blob);
-    renderItems();
-    closeCrop();
-    return;
-  }
-
-  const fd = new FormData();
-  fd.append("file", blob, `${itemId}.webp`);
-
-  const up = await API("upload_image", {set: current.id, item: itemId}, fd, true);
-  if(!up.ok){ alert("Upload error"); return; }
-
-  // Image persistée immédiatement
-  clearPendingImage(itemId);
-  current.items[cropTarget.itemIdx].img = up.url;
-  fillForm();
-  closeCrop();
-}
-
-// events
 
   btnNew.addEventListener("click", newSet);
 
   listEl.addEventListener("click", async (e)=>{
     const b = e.target.closest("button[data-act]");
     if(!b) return;
-if(b.dataset.act === "edit") loadSet(b.dataset.id);
-if(b.dataset.act === "delete"){
-  const id = b.dataset.id || "";
-  if(!id) return;
-  if(!confirm(`Supprimer le set "${id}" ?`)) return;
-  const res = await API("delete_set", {id});
-  if(!res.ok){ alert("Erreur suppression"); return; }
-  if(current.id === id) newSet();
-  await refreshList();
-}
+    if(b.dataset.act === "edit") loadSet(b.dataset.id);
+    if(b.dataset.act === "delete"){
+      const id = b.dataset.id || "";
+      if(!id) return;
+      if(!confirm(`Supprimer le set "${id}" ?`)) return;
+      const res = await API("delete_set", {id});
+      if(!res.ok){ alert("Erreur suppression"); return; }
+      if(current.id === id) newSet();
+      await refreshList();
+    }
   });
 
   itemsEditor.addEventListener("input", (e)=>{
@@ -890,113 +871,41 @@ if(b.dataset.act === "delete"){
     if(!(inp instanceof HTMLInputElement)) return;
     const idx = Number(inp.dataset.idx);
     if(Number.isNaN(idx)) return;
-    if(inp.dataset.kind === "label"){
-      current.items[idx].label = inp.value;
-    }
+    if(inp.dataset.kind === "label") current.items[idx].label = inp.value;
   });
 
-  itemsEditor.addEventListener("change", (e)=>{
-    const inp = e.target;
-    if(!(inp instanceof HTMLInputElement)) return;
-    const idx = Number(inp.dataset.idx);
-    if(Number.isNaN(idx)) return;
-    if(inp.dataset.kind === "file"){
-      const file = inp.files?.[0];
-      if(!file) return;
-      openCrop(file, idx);
-      inp.value = "";
-    }
-  });
-
-  // Add / remove entries
   itemsEditor.addEventListener("click", (e)=>{
-    const btn = e.target instanceof HTMLElement ? e.target.closest("[data-action]") : null;
+    const btn = e.target instanceof HTMLElement ? e.target.closest("button[data-action]") : null;
     if(!btn) return;
     const action = btn.getAttribute("data-action");
-    if(action === "add-item"){
-      const nid = "i" + Date.now().toString(36);
-      current.items.push({id:nid, label:"", img:""});
+    if(action === "remove-item"){
+      const idx = Number(btn.getAttribute("data-idx"));
+      if(Number.isNaN(idx)) return;
+      const removed = current.items[idx];
+      current.items.splice(idx, 1);
+      if(removed?.id) clearPendingImage(removed.id);
       renderItems();
     }
-
-if(action === "remove-item"){
-  const idx = Number(btn.getAttribute("data-idx"));
-  if(Number.isNaN(idx)) return;
-  if(current.items.length <= 1) return;
-
-  const removed = current.items[idx];
-  current.items.splice(idx, 1);
-
-  if(removed?.id) clearPendingImage(removed.id);
-  renderItems();
-}
   });
 
+  form.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    readFormToCurrent();
 
-  btnCropClose.addEventListener("click", closeCrop);
-  el(".modal__backdrop").addEventListener("click", closeCrop);
-  btnCropSave.addEventListener("click", saveCrop);
+    const res = await API("save_set", {}, current);
+    if(!res.ok){ alert(res.error || "Erreur save"); return; }
+    current = res.set;
 
+    await uploadPendingFiles();
 
-form.addEventListener("submit", async (e)=>{
-  e.preventDefault();
-  readFormToCurrent();
+    const res2 = await API("save_set", {}, current);
+    if(!res2.ok){ alert(res2.error || "Erreur save (post-upload)"); return; }
+    current = res2.set;
 
-  // Normalise item IDs
-  current.items = current.items.map((it, i) => ({...it, id: it.id || `i${i+1}`}));
-
-  // 1) Save set (ID can be empty: server will generate it)
-  const res = await API("save_set", {}, current);
-  if(!res.ok){ alert(res.error || "Erreur save"); return; }
-  current = res.set;
-
-  fillForm();
-  await refreshList();
-
-  // 2) If there are pending images (set was not persisted earlier), upload them now
-  let uploaded = 0;
-  const failed = [];
-
-  if(pendingUploads.size > 0){
-    if(!current.id){
-      alert("Erreur: le set n'a pas d'ID après enregistrement.");
-      return;
-    }
-
-    for(const [itemId, blob] of Array.from(pendingUploads.entries())){
-      const fd = new FormData();
-      fd.append("file", blob, `${itemId}.webp`);
-
-      const up = await API("upload_image", {set: current.id, item: itemId}, fd, true);
-      if(!up.ok){
-        failed.push({itemId, error: up.error || "Upload error"});
-        continue;
-      }
-
-      // Apply URL to item
-      const it = current.items.find(x => x.id === itemId);
-      if(it) it.img = up.url;
-
-      clearPendingImage(itemId);
-      uploaded++;
-    }
-
-    // 3) Persist the uploaded image URLs
-    if(uploaded > 0){
-      const res2 = await API("save_set", {}, current);
-      if(!res2.ok){ alert(res2.error || "Erreur save (post-upload)"); return; }
-      current = res2.set;
-      fillForm();
-      await refreshList();
-    }
-  }
-
-  if(failed.length){
-    alert(`Enregistré, mais ${failed.length} image(s) n'ont pas pu être uploadées.`);
-  } else {
+    fillForm();
+    await refreshList();
     alert("Enregistré");
-  }
-});
+  });
 
   btnDelete.addEventListener("click", async ()=>{
     readFormToCurrent();
@@ -1009,10 +918,8 @@ form.addEventListener("submit", async (e)=>{
   });
 
   await refreshList();
-  // Ne pas forcer le chargement d'un set "demo" (peut ne pas exister)
   newSet();
 }
-
 // ---------- BOOT ----------
 document.addEventListener("DOMContentLoaded", ()=>{
   const p = window.__PAGE__;
@@ -1020,3 +927,4 @@ document.addEventListener("DOMContentLoaded", ()=>{
   if(p === "play") initPlay();
   if(p === "admin") initAdmin();
 });
+

@@ -10,8 +10,10 @@ const esc = (s) => (s ?? '').toString().replace(/[&<>"']/g, (m) => ({ '&': '&amp
 function assetUrl(path) {
   if (!path) return '';
   if (/^(https?:|data:|blob:)/i.test(path)) return path;
-  if (path.startsWith('/')) return BASE + path;
-  return BASE + '/' + path;
+  const basePath = path.startsWith('/') ? (BASE + path) : (BASE + '/' + path);
+  if (!SHARE_MODE || !SHARE_TOKEN) return basePath;
+  const sep = basePath.includes('?') ? '&' : '?';
+  return basePath + sep + 'st=' + encodeURIComponent(SHARE_TOKEN);
 }
 
 async function api(action, params = {}, body = null, isForm = false) {
@@ -40,6 +42,28 @@ async function api(action, params = {}, body = null, isForm = false) {
   return data;
 }
 
+function ensureToastStack() {
+  let stack = el('#toastStack');
+  if (stack) return stack;
+  stack = document.createElement('div');
+  stack.id = 'toastStack';
+  stack.className = 'toast-stack';
+  document.body.appendChild(stack);
+  return stack;
+}
+
+function toast(message, kind = 'info') {
+  const stack = ensureToastStack();
+  const node = document.createElement('div');
+  node.className = `toast toast-${kind}`;
+  node.textContent = message;
+  stack.appendChild(node);
+  window.setTimeout(() => {
+    node.classList.add('hide');
+    window.setTimeout(() => node.remove(), 220);
+  }, 2200);
+}
+
 async function initHome() {
   const wrap = el('#homeSets');
   const res = await api('list_sets');
@@ -63,38 +87,121 @@ async function initHome() {
   `).join('');
 }
 
+function ensurePlayLoader() {
+  let loader = el('#playLoader');
+  if (loader) return loader;
+
+  loader = document.createElement('div');
+  loader.id = 'playLoader';
+  loader.className = 'play-loader';
+  loader.hidden = true;
+  loader.innerHTML = `
+    <div class="play-loader-card">
+      <div class="play-loader-title" id="playLoaderTitle">Préparation du set...</div>
+      <div class="play-loader-detail" id="playLoaderDetail">Chargement des images</div>
+      <div class="play-loader-bar"><span id="playLoaderBar"></span></div>
+      <button class="btn ghost" type="button" id="playLoaderRetry" hidden>Réessayer</button>
+    </div>
+  `;
+  document.body.appendChild(loader);
+  return loader;
+}
+
+async function preloadImage(url) {
+  return new Promise((resolve) => {
+    const im = new Image();
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      resolve(ok);
+    };
+    const timer = window.setTimeout(() => finish(false), 8000);
+    im.onload = () => { clearTimeout(timer); finish(true); };
+    im.onerror = () => { clearTimeout(timer); finish(false); };
+    im.src = url;
+  });
+}
+
 async function initPlay() {
   const stage = el('#playStage');
   const image = el('#playImage');
   const caption = el('#playCaption');
   const hint = el('#playHint');
-  const title = el('#setTitle');
-  const state = el('#playState');
+
+  const loader = ensurePlayLoader();
+  const loaderTitle = el('#playLoaderTitle', loader);
+  const loaderDetail = el('#playLoaderDetail', loader);
+  const loaderBar = el('#playLoaderBar', loader);
+  const loaderRetry = el('#playLoaderRetry', loader);
+
+  function showLoader(main, detail = '', progress = 0, canRetry = false) {
+    loader.hidden = false;
+    loaderTitle.textContent = main;
+    loaderDetail.textContent = detail;
+    loaderBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+    loaderRetry.hidden = !canRetry;
+  }
+
+  function hideLoader() {
+    loader.hidden = true;
+  }
 
   const setId = (window.__SET_ID__ || window.__SHARE_SET__ || '').trim();
   if (!setId) {
-    title.textContent = 'Set manquant';
+    hint.textContent = 'Set manquant';
+    hint.classList.remove('hint-stop');
+    stage.disabled = true;
     return;
   }
 
   const res = await api('get_set', { id: setId });
   if (!res.ok) {
-    title.textContent = res.error || 'Set introuvable';
+    hint.textContent = res.error || 'Set introuvable';
+    hint.classList.remove('hint-stop');
+    stage.disabled = true;
     return;
   }
 
   const set = res.set || {};
-  const items = Array.isArray(set.items) ? set.items.filter((it) => it && it.img) : [];
-  if (!items.length) {
-    title.textContent = set.title || setId;
+  const rawItems = Array.isArray(set.items) ? set.items.filter((it) => it && it.img) : [];
+  if (!rawItems.length) {
+    hint.textContent = 'Set vide';
+    hint.classList.remove('hint-stop');
     caption.hidden = false;
     caption.textContent = 'Ce set ne contient pas d\'image.';
+    stage.disabled = true;
     return;
   }
 
-  title.textContent = set.title || setId;
+  const items = rawItems.map((it) => ({ ...it, __url: assetUrl(it.img) }));
 
-  let running = true;
+  async function runPreload() {
+    showLoader('Préchargement...', 'Initialisation', 2, false);
+    stage.disabled = true;
+
+    const uniqueUrls = Array.from(new Set(items.map((it) => it.__url).filter(Boolean)));
+    let done = 0;
+    const failed = [];
+
+    for (const url of uniqueUrls) {
+      const ok = await preloadImage(url);
+      done += 1;
+      const pct = Math.round((done / uniqueUrls.length) * 100);
+      showLoader('Préchargement...', `Images ${done}/${uniqueUrls.length}`, pct, false);
+      if (!ok) failed.push(url);
+    }
+
+    if (failed.length > 0) {
+      showLoader('Chargement incomplet', `${failed.length} image(s) indisponible(s).`, 100, true);
+      throw new Error('Image preload failed');
+    }
+
+    hideLoader();
+    stage.disabled = false;
+  }
+
+  let running = false;
   let current = null;
   let timer = null;
 
@@ -112,7 +219,7 @@ async function initPlay() {
   }
 
   function render(item) {
-    image.src = assetUrl(item.img);
+    image.src = item.__url;
     image.alt = item.label || '';
     caption.textContent = item.label || '';
   }
@@ -123,20 +230,24 @@ async function initPlay() {
   }
 
   function start() {
+    if (running) return;
     running = true;
-    state.textContent = 'Défilement';
-    hint.textContent = 'Clique pour figer et voir la légende';
+    hint.textContent = '';
+    hint.classList.remove('hint-stop');
     caption.hidden = true;
     loop();
-    timer = window.setInterval(loop, 200);
+    timer = window.setInterval(loop, 100);
   }
 
   function stop() {
     running = false;
-    window.clearInterval(timer);
-    timer = null;
-    state.textContent = 'Figé';
-    hint.textContent = 'Clique pour reprendre';
+    if (timer) {
+      window.clearInterval(timer);
+      timer = null;
+    }
+    hint.textContent = 'Tu es';
+    hint.classList.add('hint-stop');
+    
     caption.hidden = false;
   }
 
@@ -148,16 +259,31 @@ async function initPlay() {
     }
   });
 
-  start();
+  loaderRetry.addEventListener('click', async () => {
+    try {
+      await runPreload();
+      toast('Préchargement terminé', 'success');
+      start();
+    } catch {
+      toast('Certaines images ne se chargent pas', 'error');
+    }
+  });
+
+  try {
+    await runPreload();
+    start();
+  } catch {
+    toast('Échec du préchargement. Vérifiez les images du set.', 'error');
+  }
 
   if (SHARE_MODE && window.__SHARE_EXP__) {
     const msLeft = (Number(window.__SHARE_EXP__) * 1000) - Date.now();
     if (msLeft > 0) {
       window.setTimeout(() => {
-        running = false;
-        if (timer) window.clearInterval(timer);
+        stop();
         stage.disabled = true;
-        state.textContent = 'Expiré';
+        hint.textContent = 'Lien expiré';
+        hint.classList.remove('hint-stop');
         caption.hidden = false;
         caption.textContent = 'Ce lien temporaire a expiré.';
       }, msLeft);
@@ -173,6 +299,9 @@ async function initAdmin() {
   const btnDelete = el('#btnDeleteSet');
   const btnPlay = el('#btnPlay');
   const btnShare = el('#btnShare');
+  const btnSave = el('#btnSaveSet');
+  const statusEl = el('#adminStatus');
+  const searchInput = el('#setSearch');
 
   const shareModal = el('#shareModal');
   const shareUrl = el('#shareUrl');
@@ -182,151 +311,342 @@ async function initAdmin() {
   const btnCloseShare = el('#btnCloseShare');
 
   let current = { id: '', title: '', items: [] };
-  const pendingFiles = new Map();
+  let allSets = [];
+  let selectedId = '';
+  let dirty = false;
+  let busy = false;
 
-  function defaultItems() {
-    return [{ id: 'i1', label: '', img: '' }];
+  const pendingFiles = new Map();
+  const pendingPreview = new Map();
+
+  function setStatus(text, tone = 'info') {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.className = `status-pill status-${tone}`;
+  }
+
+  function toast(message, kind = 'info') {
+    const stack = ensureToastStack();
+    const node = document.createElement('div');
+    node.className = `toast toast-${kind}`;
+    node.textContent = message;
+    stack.appendChild(node);
+    window.setTimeout(() => {
+      node.classList.add('hide');
+      window.setTimeout(() => node.remove(), 220);
+    }, 2200);
+  }
+
+  function setBusy(next, label = '') {
+    busy = next;
+    if (btnSave) {
+      btnSave.disabled = next;
+      btnSave.setAttribute('aria-busy', next ? 'true' : 'false');
+      btnSave.textContent = next ? (label || 'Traitement...') : 'Enregistrer';
+    }
+    btnDelete.disabled = next;
+    btnNew.disabled = next;
+    btnShare.disabled = next;
+  }
+
+  function setDirty(next) {
+    dirty = next;
+    if (dirty) setStatus('Modifications non enregistrées', 'warn');
+    else setStatus('Prêt', 'ok');
+  }
+
+  function ensureLeaveDirty() {
+    if (!dirty || busy) return true;
+    return window.confirm('Vous avez des modifications non enregistrées. Continuer ?');
+  }
+
+  function normalizeItems(items) {
+    return items.map((item, idx) => ({
+      id: (item.id || ('i' + (idx + 1))).toString(),
+      label: (item.label || '').trim(),
+      img: item.img || ''
+    }));
+  }
+
+  function createItemId() {
+    return 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function filenameToLabel(name) {
+    return (name || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+  }
+
+  function clearPending(itemId) {
+    const url = pendingPreview.get(itemId);
+    if (url) URL.revokeObjectURL(url);
+    pendingPreview.delete(itemId);
+    pendingFiles.delete(itemId);
+  }
+
+  function clearAllPending() {
+    for (const id of Array.from(pendingPreview.keys())) {
+      clearPending(id);
+    }
   }
 
   function setCurrent(set) {
     current = {
       id: set.id || '',
       title: set.title || '',
-      items: Array.isArray(set.items) && set.items.length ? set.items : defaultItems()
+      items: normalizeItems(Array.isArray(set.items) ? set.items : [])
     };
+
+    selectedId = current.id;
     form.id.value = current.id;
     form.title.value = current.title;
     btnPlay.href = current.id ? `${BASE}/?p=play&set=${encodeURIComponent(current.id)}` : '#';
+    renderList();
     renderItems();
+    setDirty(false);
   }
 
-  function renderItems() {
-    itemsEditor.innerHTML = `
-      <div class="row between">
-        <h4>Items (${current.items.length})</h4>
-        <button type="button" class="btn ghost" data-act="add-item">Ajouter un item</button>
-      </div>
-      ${current.items.map((item, idx) => `
-        <article class="item-row" data-idx="${idx}">
-          <div class="preview">${item.img ? `<img src="${esc(assetUrl(item.img))}" alt="">` : '<span>Image</span>'}</div>
-          <div class="fields">
-            <label>
-              <span>Légende</span>
-              <input data-kind="label" data-idx="${idx}" value="${esc(item.label)}">
-            </label>
-            <label>
-              <span>Image locale</span>
-              <input data-kind="file" data-idx="${idx}" type="file" accept="image/*">
-            </label>
-            <button type="button" class="btn danger" data-act="remove-item" data-idx="${idx}" ${current.items.length <= 1 ? 'disabled' : ''}>Supprimer</button>
-          </div>
-        </article>
-      `).join('')}
-    `;
-  }
+  function renderList() {
+    const q = (searchInput?.value || '').trim().toLowerCase();
+    const rows = allSets.filter((set) => {
+      if (!q) return true;
+      return (set.title || '').toLowerCase().includes(q) || (set.id || '').toLowerCase().includes(q);
+    });
 
-  function readForm() {
-    current.id = (form.id.value || '').trim();
-    current.title = (form.title.value || '').trim();
-    current.items = current.items.map((item, idx) => ({
-      id: item.id || ('i' + (idx + 1)),
-      label: item.label || '',
-      img: item.img || ''
-    }));
-  }
-
-  async function refreshList() {
-    const res = await api('list_sets');
-    if (!res.ok) {
-      listEl.textContent = res.error || 'Erreur';
-      return;
-    }
-    const sets = res.sets || [];
-    listEl.innerHTML = sets.map((set) => `
-      <div class="list-row">
+    listEl.innerHTML = rows.map((set) => `
+      <div class="list-row ${selectedId === set.id ? 'active' : ''}">
         <div>
           <div class="strong">${esc(set.title)}</div>
-          <div class="muted">${esc(set.id)}</div>
+          <div class="muted">${esc(set.id)} • ${esc(String(set.itemCount || 0))} item(s)</div>
         </div>
         <div class="row">
           <button class="btn ghost" data-act="edit" data-id="${esc(set.id)}">Éditer</button>
+          <a class="btn ghost" href="${BASE}/?p=play&set=${encodeURIComponent(set.id)}">Jouer</a>
           <button class="btn danger" data-act="delete" data-id="${esc(set.id)}">Suppr.</button>
         </div>
       </div>
     `).join('') || '<p class="muted">Aucun set.</p>';
   }
 
-  async function loadSet(id) {
-    const res = await api('get_set', { id });
+  function renderItems() {
+    const rows = current.items.map((item, idx) => {
+      const preview = pendingPreview.get(item.id) || assetUrl(item.img);
+      const pending = pendingFiles.has(item.id);
+      return `
+        <tr data-idx="${idx}">
+          <td class="col-preview">${preview ? `<img src="${esc(preview)}" alt="">` : '<span class="muted">-</span>'}</td>
+          <td class="col-label"><input data-kind="label" data-idx="${idx}" value="${esc(item.label)}" placeholder="Libellé"></td>
+          <td class="col-status">${pending ? '<span class="status-chip">En attente</span>' : '<span class="muted">OK</span>'}</td>
+          <td class="col-actions"><button class="btn danger" type="button" data-act="remove-item" data-idx="${idx}">Supprimer</button></td>
+        </tr>
+      `;
+    }).join('');
+
+    const canAddImages = !!current.id;
+    const addHint = canAddImages
+      ? `${current.items.length} image(s)`
+      : 'Créez le set puis enregistrez pour ajouter des images';
+
+    itemsEditor.innerHTML = `
+      <div class="items-toolbar">
+        <button class="btn" id="btnAddImages" type="button" ${canAddImages ? '' : 'disabled'}>Ajouter image(s)</button>
+        <input id="inputAddImages" type="file" accept="image/*" multiple hidden>
+        <span class="muted">${addHint}</span>
+      </div>
+      <div class="items-table-wrap">
+        <table class="items-table">
+          <thead>
+            <tr><th>Image</th><th>Libellé</th><th>Etat</th><th>Action</th></tr>
+          </thead>
+          <tbody>${rows || '<tr><td colspan="4" class="muted">Aucune image. Cliquez sur "Ajouter image(s)".</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+
+    const btnAddImages = el('#btnAddImages', itemsEditor);
+    const inputAddImages = el('#inputAddImages', itemsEditor);
+    btnAddImages?.addEventListener('click', () => {
+      if (!current.id) {
+        toast('Enregistrez d\'abord le set, puis ajoutez les images.', 'warn');
+        setStatus('Créez d\'abord le set (titre + enregistrer)', 'warn');
+        return;
+      }
+      inputAddImages?.click();
+    });
+    inputAddImages?.addEventListener('change', () => addFiles(inputAddImages.files));
+  }
+
+  function readForm() {
+    current.id = (form.id.value || '').trim();
+    current.title = (form.title.value || '').trim();
+    current.items = normalizeItems(current.items);
+  }
+
+  async function refreshList() {
+    setStatus('Chargement des sets...', 'info');
+    const res = await api('list_sets');
     if (!res.ok) {
-      alert(res.error || 'Set introuvable');
+      listEl.textContent = res.error || 'Erreur';
+      setStatus('Erreur de chargement', 'error');
       return;
     }
-    pendingFiles.clear();
+    allSets = Array.isArray(res.sets) ? res.sets : [];
+    renderList();
+    setStatus('Prêt', 'ok');
+  }
+
+  async function loadSet(id) {
+    if (!ensureLeaveDirty()) return;
+    setBusy(true, 'Ouverture...');
+    const res = await api('get_set', { id });
+    setBusy(false);
+    if (!res.ok) {
+      toast(res.error || 'Set introuvable', 'error');
+      return;
+    }
+    clearAllPending();
     setCurrent(res.set);
+    toast(`Set "${id}" chargé`, 'success');
+  }
+
+  async function uploadOne(itemId, file) {
+    const fd = new FormData();
+    fd.append('file', file, file.name || `${itemId}.jpg`);
+    return api('upload_image', { set: current.id, item: itemId }, fd, true);
+  }
+
+  async function addFiles(fileList) {
+    if (!current.id) {
+      toast('Enregistrez d\'abord le set, puis ajoutez les images.', 'warn');
+      setStatus('Créez d\'abord le set (titre + enregistrer)', 'warn');
+      return;
+    }
+
+    if (!fileList || fileList.length === 0) return;
+
+    const files = Array.from(fileList).filter((f) => f && /^image\//i.test(f.type || ''));
+    if (files.length === 0) {
+      toast('Aucune image valide', 'error');
+      return;
+    }
+
+    setStatus(`Ajout de ${files.length} image(s)...`, 'info');
+
+    for (const file of files) {
+      const id = createItemId();
+      const item = { id, label: filenameToLabel(file.name), img: '' };
+      current.items.push(item);
+
+      if (current.id) {
+        const up = await uploadOne(id, file);
+        if (up.ok) {
+          item.img = up.url;
+        } else {
+          pendingFiles.set(id, file);
+          const objectUrl = URL.createObjectURL(file);
+          pendingPreview.set(id, objectUrl);
+          toast(`Upload différé pour ${file.name}`, 'warn');
+        }
+      } else {
+        pendingFiles.set(id, file);
+        const objectUrl = URL.createObjectURL(file);
+        pendingPreview.set(id, objectUrl);
+      }
+    }
+
+    renderItems();
+    setDirty(true);
+    setStatus('Images ajoutées', 'ok');
   }
 
   async function uploadPendingFiles() {
-    if (!current.id) return;
-    for (const [itemId, file] of pendingFiles.entries()) {
-      const fd = new FormData();
-      fd.append('file', file, file.name || `${itemId}.jpg`);
-      const up = await api('upload_image', { set: current.id, item: itemId }, fd, true);
+    if (!current.id || pendingFiles.size === 0) return;
+
+    const entries = Array.from(pendingFiles.entries());
+    let done = 0;
+
+    for (const [itemId, file] of entries) {
+      done += 1;
+      setStatus(`Upload images ${done}/${entries.length}...`, 'info');
+      const up = await uploadOne(itemId, file);
       if (up.ok) {
         const item = current.items.find((it) => it.id === itemId);
         if (item) item.img = up.url;
+        clearPending(itemId);
+      } else {
+        toast(`Upload échoué (${file.name})`, 'error');
       }
     }
-    pendingFiles.clear();
   }
 
   async function saveCurrent() {
+    if (busy) return;
+
     readForm();
     if (!current.title) {
-      alert('Titre requis');
+      toast('Titre requis', 'error');
+      setStatus('Le titre est obligatoire', 'error');
       return;
     }
 
-    const res = await api('save_set', {}, current);
-    if (!res.ok) {
-      alert(res.error || 'Erreur enregistrement');
+
+    setBusy(true, 'Enregistrement...');
+    setStatus('Enregistrement du set...', 'info');
+
+    const first = await api('save_set', {}, current);
+    if (!first.ok) {
+      setBusy(false);
+      toast(first.error || 'Erreur enregistrement', 'error');
+      setStatus('Échec enregistrement', 'error');
       return;
     }
 
-    setCurrent(res.set);
+    setCurrent(first.set);
     await uploadPendingFiles();
 
-    const post = await api('save_set', {}, current);
-    if (!post.ok) {
-      alert(post.error || 'Erreur post-upload');
+    const finalSave = await api('save_set', {}, current);
+    if (!finalSave.ok) {
+      setBusy(false);
+      toast(finalSave.error || 'Erreur finalisation', 'error');
+      setStatus('Échec finalisation', 'error');
       return;
     }
 
-    setCurrent(post.set);
+    setCurrent(finalSave.set);
     await refreshList();
-    alert('Set enregistré');
+    setBusy(false);
+    setDirty(false);
+    setStatus('Enregistré', 'ok');
+    toast('Set enregistré', 'success');
   }
 
-  async function deleteCurrent() {
-    readForm();
-    if (!current.id) return;
-    if (!confirm(`Supprimer le set "${current.id}" ?`)) return;
+  async function deleteSetById(id) {
+    if (!id || busy) return;
+    if (!window.confirm(`Supprimer le set "${id}" ?`)) return;
 
-    const res = await api('delete_set', { id: current.id });
+    setBusy(true, 'Suppression...');
+    const res = await api('delete_set', { id });
+    setBusy(false);
+
     if (!res.ok) {
-      alert(res.error || 'Erreur suppression');
+      toast(res.error || 'Erreur suppression', 'error');
+      setStatus('Échec suppression', 'error');
       return;
     }
 
-    pendingFiles.clear();
-    setCurrent({ id: '', title: '', items: defaultItems() });
+    if (current.id === id) {
+      clearAllPending();
+      setCurrent({ id: '', title: '', items: [] });
+    }
+
     await refreshList();
+    toast(`Set "${id}" supprimé`, 'success');
+    setStatus('Set supprimé', 'ok');
   }
 
   async function openShareModal(setId) {
     const res = await api('create_share_link', { id: setId });
     if (!res.ok) {
-      alert(res.error || 'Erreur création lien');
+      toast(res.error || 'Erreur création lien', 'error');
       return;
     }
 
@@ -346,10 +666,7 @@ async function initAdmin() {
     };
 
     renderQr();
-    if (typeof window.QRCode === 'undefined') {
-      window.setTimeout(renderQr, 250);
-    }
-
+    if (typeof window.QRCode === 'undefined') window.setTimeout(renderQr, 250);
     shareModal.hidden = false;
   }
 
@@ -357,18 +674,8 @@ async function initAdmin() {
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
     const id = btn.dataset.id || '';
-
     if (btn.dataset.act === 'edit') await loadSet(id);
-    if (btn.dataset.act === 'delete') {
-      if (!confirm(`Supprimer le set "${id}" ?`)) return;
-      const res = await api('delete_set', { id });
-      if (!res.ok) {
-        alert(res.error || 'Erreur suppression');
-        return;
-      }
-      if (current.id === id) setCurrent({ id: '', title: '', items: defaultItems() });
-      await refreshList();
-    }
+    if (btn.dataset.act === 'delete') await deleteSetById(id);
   });
 
   itemsEditor.addEventListener('input', (e) => {
@@ -379,63 +686,23 @@ async function initAdmin() {
 
     if (input.dataset.kind === 'label') {
       current.items[idx].label = input.value;
-    }
-  });
-
-  itemsEditor.addEventListener('change', (e) => {
-    const input = e.target;
-    if (!(input instanceof HTMLInputElement)) return;
-    const idx = Number(input.dataset.idx);
-    if (Number.isNaN(idx)) return;
-
-    if (input.dataset.kind === 'file') {
-      const file = input.files && input.files[0];
-      if (!file) return;
-
-      const item = current.items[idx];
-      if (!item.id) item.id = 'i' + (idx + 1);
-
-      if (current.id) {
-        const fd = new FormData();
-        fd.append('file', file, file.name);
-        api('upload_image', { set: current.id, item: item.id }, fd, true).then((up) => {
-          if (!up.ok) {
-            alert(up.error || 'Upload échoué');
-            return;
-          }
-          current.items[idx].img = up.url;
-          renderItems();
-        });
-      } else {
-        pendingFiles.set(item.id, file);
-      }
+      setDirty(true);
     }
   });
 
   itemsEditor.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-act]');
+    const btn = e.target.closest('button[data-act]');
     if (!btn) return;
-
-    if (btn.dataset.act === 'add-item') {
-      current.items.push({ id: 'i' + Date.now().toString(36), label: '', img: '' });
-      renderItems();
-      return;
-    }
 
     if (btn.dataset.act === 'remove-item') {
       const idx = Number(btn.dataset.idx);
       if (Number.isNaN(idx)) return;
-      if (current.items.length <= 1) return;
       const item = current.items[idx];
-      if (item && item.id) pendingFiles.delete(item.id);
+      if (item?.id) clearPending(item.id);
       current.items.splice(idx, 1);
       renderItems();
+      setDirty(true);
     }
-  });
-
-  btnNew.addEventListener('click', () => {
-    pendingFiles.clear();
-    setCurrent({ id: '', title: '', items: defaultItems() });
   });
 
   form.addEventListener('submit', async (e) => {
@@ -443,12 +710,29 @@ async function initAdmin() {
     await saveCurrent();
   });
 
-  btnDelete.addEventListener('click', deleteCurrent);
+  form.addEventListener('input', () => {
+    if (!busy) setDirty(true);
+  });
+
+  btnNew.addEventListener('click', () => {
+    if (!ensureLeaveDirty()) return;
+    clearAllPending();
+    setCurrent({ id: '', title: '', items: [] });
+    if (searchInput) searchInput.value = '';
+    renderList();
+    toast('Nouveau set prêt', 'info');
+  });
+
+  btnDelete.addEventListener('click', async () => {
+    readForm();
+    if (!current.id) return;
+    await deleteSetById(current.id);
+  });
 
   btnShare.addEventListener('click', async () => {
     readForm();
     if (!current.id) {
-      alert('Enregistre d\'abord le set pour générer le lien.');
+      toast('Enregistrez d\'abord le set', 'error');
       return;
     }
     await openShareModal(current.id);
@@ -457,25 +741,47 @@ async function initAdmin() {
   btnCopyShare.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(shareUrl.value || '');
-      btnCopyShare.textContent = 'Copié';
-      window.setTimeout(() => { btnCopyShare.textContent = 'Copier le lien'; }, 1200);
+      toast('Lien copié', 'success');
     } catch {
       shareUrl.select();
       document.execCommand('copy');
+      toast('Lien copié', 'success');
     }
   });
+
+  searchInput?.addEventListener('input', renderList);
 
   const closeShare = () => { shareModal.hidden = true; };
   btnCloseShare.addEventListener('click', closeShare);
   el('.modal-backdrop', shareModal).addEventListener('click', closeShare);
 
-  await refreshList();
-  setCurrent({ id: '', title: '', items: defaultItems() });
-}
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      saveCurrent();
+    }
+  });
 
+  window.addEventListener('beforeunload', (e) => {
+    if (!dirty) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
+  await refreshList();
+  setCurrent({ id: '', title: '', items: [] });
+}
 document.addEventListener('DOMContentLoaded', () => {
   const page = window.__PAGE__;
   if (page === 'home') initHome();
   if (page === 'admin') initAdmin();
   if (page === 'play') initPlay();
 });
+
+
+
+
+
+
+
+

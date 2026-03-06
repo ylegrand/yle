@@ -447,3 +447,63 @@ input[readonly]{
   animation: spin 1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.items-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.items-table-wrap{
+  overflow-x:auto;
+  border:1px solid rgba(17,24,39,0.10);
+  border-radius:12px;
+  background:#fff;
+}
+
+.items-table{
+  width:100%;
+  min-width:620px;
+  border-collapse:collapse;
+}
+
+.items-table th,
+.items-table td{
+  border-bottom:1px solid rgba(17,24,39,0.10);
+  padding:8px 10px;
+  text-align:left;
+  vertical-align:middle;
+}
+
+.items-table th{
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+  color:rgba(17,24,39,0.62);
+  background:rgba(17,24,39,0.03);
+}
+
+.items-table .col-preview img{
+  width:64px;
+  height:64px;
+  object-fit:cover;
+  border-radius:8px;
+  border:1px solid rgba(17,24,39,0.12);
+}
+
+.items-table .col-label input{
+  min-width:260px;
+}
+
+.status-chip{
+  display:inline-block;
+  border-radius:999px;
+  padding:4px 8px;
+  border:1px solid #f4ddb3;
+  background:#fff7e8;
+  color:#a35f10;
+  font-size:12px;
+  font-weight:700;
+}
