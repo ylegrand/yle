@@ -18,6 +18,7 @@
 - `DB_PASS`
 - `COOKIE_SECURE` (`1` en prod HTTPS)
 - `COOKIE_SAMESITE` (`Lax` par défaut)
+- `SHARE_TOKEN_SECRET` (signature HMAC des liens temporaires publics)
 
 ## Variables optionnelles par projet
 - Préfixe conseillé: `<PROJET>_...` (ex: `WORD_DATA_DIR`)
@@ -27,4 +28,3 @@
 - Stocker `.env` hors webroot si possible.
 - Sinon: bloquer l'accès HTTP au fichier (`.htaccess` ou config équivalente).
 - Restreindre les permissions fichier au strict nécessaire.
-
