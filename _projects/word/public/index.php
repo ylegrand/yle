@@ -20,6 +20,28 @@ function word_h(?string $value): string {
   return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 
+function word_read_shared_asset(string $name): string {
+  $base = realpath(__DIR__ . '/../../_shared');
+  if ($base === false) {
+    return '';
+  }
+
+  $path = realpath($base . '/' . $name);
+  if ($path === false) {
+    return '';
+  }
+
+  $baseNorm = str_replace('\\', '/', $base);
+  $pathNorm = str_replace('\\', '/', $path);
+  if (!str_starts_with($pathNorm, $baseNorm . '/')) {
+    return '';
+  }
+
+  $raw = file_get_contents($path);
+  return $raw === false ? '' : $raw;
+}
+
+
 function json_response(array $payload, int $status = 200): void {
   http_response_code($status);
   header('Content-Type: application/json; charset=utf-8');
@@ -211,6 +233,8 @@ if (!is_dir($SETS_DIR)) {
 }
 
 $p = (string)($_GET['p'] ?? 'home');
+$sharedAdminCss = $p === 'admin' ? word_read_shared_asset('set-admin-core.css') : '';
+$sharedAdminJs = $p === 'admin' ? word_read_shared_asset('set-admin-core.js') : '';
 
 if ($shareMode && $shareSet === '') {
   http_response_code(403);
@@ -550,13 +574,16 @@ $csrf = csrf_issue_token();
 
 if ($p === 'admin') {
   $extraHead = '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>';
+  if ($sharedAdminCss !== '') {
+    $extraHead .= '<style>' . $sharedAdminCss . '</style>';
+  }
   page_head('Admin', $extraHead, 'admin'); ?>
   <section class="card">
     <div class="row between center">
       <h1 class="h1">Administration</h1>
       <button class="btn" id="btnNewSet">Nouveau set</button>
     </div>
-    <p class="muted">CRUD simple: sets, images et rythme.</p>
+    <p class="muted">Gestion des sets: infos, medias, rythme, test et partage.</p>
     <div class="row admin-toolbar">
       <input id="setSearch" class="input-search" placeholder="Rechercher un set (titre)" type="search" autocomplete="off">
       <div id="adminStatus" class="status-pill status-ok">Pret</div>
@@ -594,12 +621,13 @@ if ($p === 'admin') {
             <div class="field grow"></div>
           </div>
 
+          <div id="setChecklist" class="set-checklist"></div>
           <div class="items" id="itemsEditor"></div>
 
-          <div class="row gap">
+          <div class="row gap editor-actions">
             <button type="submit" class="btn" id="btnSaveSet">Enregistrer</button>
             <button type="button" class="btn btn--danger" id="btnDeleteSet">Supprimer</button>
-            <a class="btn btn--ghost" id="btnPreview" href="<?= word_h($BASE) ?>/?p=play&set=">Previsualiser</a>
+            <a class="btn btn--ghost" id="btnPreview" href="<?= word_h($BASE) ?>/?p=play&set=">Prévisualiser</a>
             <button type="button" class="btn btn--ghost" id="btnShare">Lien 2h + QR</button>
           </div>
         </form>
@@ -630,6 +658,9 @@ if ($p === 'admin') {
     window.__SHARE_SET__ = "";
     window.__SHARE_EXP__ = 0;
   </script>
+  <?php if ($sharedAdminJs !== ''): ?>
+  <script><?= $sharedAdminJs ?></script>
+  <?php endif; ?>
 <?php page_foot(); exit; }
 
 page_head('Catalogue', '', 'home'); ?>

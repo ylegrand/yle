@@ -14,6 +14,7 @@ function list_project_slugs(string $projectsRoot): array {
   foreach ($items as $it) {
     if ($it === '.' || $it === '..') continue;
     if ($it[0] === '.') continue;
+    if ($it[0] === '_') continue;
     if (!preg_match('/^[a-zA-Z0-9._-]+$/', $it)) continue;
     $full = $root . DIRECTORY_SEPARATOR . $it;
     if (is_dir($full)) $slugs[] = $it;

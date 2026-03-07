@@ -20,6 +20,28 @@ function wh_h(?string $value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 
+function wh_read_shared_asset(string $name): string {
+    $base = realpath(__DIR__ . '/../../_shared');
+    if ($base === false) {
+        return '';
+    }
+
+    $path = realpath($base . '/' . $name);
+    if ($path === false) {
+        return '';
+    }
+
+    $baseNorm = str_replace('\\', '/', $base);
+    $pathNorm = str_replace('\\', '/', $path);
+    if (!str_starts_with($pathNorm, $baseNorm . '/')) {
+        return '';
+    }
+
+    $raw = file_get_contents($path);
+    return $raw === false ? '' : $raw;
+}
+
+
 function json_response(array $payload, int $status = 200): void {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
@@ -208,6 +230,8 @@ if (!is_dir($SETS_DIR)) {
 }
 
 $p = (string)($_GET['p'] ?? 'home');
+$sharedAdminCss = $p === 'admin' ? wh_read_shared_asset('set-admin-core.css') : '';
+$sharedAdminJs = $p === 'admin' ? wh_read_shared_asset('set-admin-core.js') : '';
 
 if ($shareMode && $shareSet === '') {
     http_response_code(403);
@@ -539,6 +563,9 @@ $jsHref = append_share_token_to_url($BASE . '/app.js?v=3', $shareMode ? $shareTo
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Qui est tu ?</title>
   <link rel="stylesheet" href="<?= wh_h($cssHref) ?>">
+  <?php if ($p === 'admin' && $sharedAdminCss !== ''): ?>
+  <style><?= $sharedAdminCss ?></style>
+  <?php endif; ?>
 </head>
 <body data-page="<?= wh_h($p) ?>">
   <main class="wrap">
@@ -556,7 +583,7 @@ $jsHref = append_share_token_to_url($BASE . '/app.js?v=3', $shareMode ? $shareTo
         <h2>Administration</h2>
         <button id="btnNewSet" class="btn" type="button">Nouveau set</button>
       </div>
-      <p class="muted">CRUD simple: sets et items (image + légende).</p>
+      <p class="muted">Gestion des sets: infos, medias, test et partage.</p>
       <div class="row admin-toolbar">
         <input id="setSearch" class="input-search" placeholder="Rechercher un set (titre)" type="search" autocomplete="off">
         <div id="adminStatus" class="status-pill status-ok">Prêt</div>
@@ -577,12 +604,13 @@ $jsHref = append_share_token_to_url($BASE . '/app.js?v=3', $shareMode ? $shareTo
               <input name="title" required>
             </label>
 
+            <div id="setChecklist" class="set-checklist"></div>
             <div id="itemsEditor"></div>
 
-            <div class="row">
+            <div class="row editor-actions">
               <button class="btn" id="btnSaveSet" type="submit">Enregistrer</button>
               <button class="btn danger" id="btnDeleteSet" type="button">Supprimer</button>
-              <a class="btn ghost" id="btnPlay" href="#">Jouer</a>
+              <a class="btn ghost" id="btnPlay" href="#">Prévisualiser</a>
               <button class="btn ghost" id="btnShare" type="button">Lien 2h + QR</button>
             </div>
           </form>
@@ -625,6 +653,9 @@ $jsHref = append_share_token_to_url($BASE . '/app.js?v=3', $shareMode ? $shareTo
     window.__SHARE_SET__ = "";
     window.__SHARE_EXP__ = 0;
   </script>
+  <?php if ($p === 'admin' && $sharedAdminJs !== ''): ?>
+  <script><?= $sharedAdminJs ?></script>
+  <?php endif; ?>
   <script src="<?= wh_h($jsHref) ?>"></script>
 </body>
 </html>
