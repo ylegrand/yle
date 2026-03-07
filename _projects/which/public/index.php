@@ -455,7 +455,7 @@ if ($p === 'api') {
             json_response(['ok' => false, 'error' => 'SHARE_TOKEN_SECRET is not configured'], 500);
         }
 
-        $tokenData = create_share_token($SHARE_TOKEN_SECRET, 'which', $id, 1800);
+        $tokenData = create_share_token($SHARE_TOKEN_SECRET, 'which', $id, 7200);
         $baseUrl = project_base_url($BASE);
         $url = $baseUrl . '/?p=play&set=' . rawurlencode($id) . '&st=' . rawurlencode($tokenData['token']);
 
@@ -480,8 +480,8 @@ if ($p === 'play') {
         http_response_code(403);
         exit('Forbidden');
     }
-    $cssHref = append_share_token_to_url($BASE . '/app.css?v=1', $shareMode ? $shareToken : '');
-    $jsHref = append_share_token_to_url($BASE . '/app.js?v=1', $shareMode ? $shareToken : '');
+    $cssHref = append_share_token_to_url($BASE . '/app.css?v=2', $shareMode ? $shareToken : '');
+    $jsHref = append_share_token_to_url($BASE . '/app.js?v=3', $shareMode ? $shareToken : '');
     ?>
 <!doctype html>
 <html lang="fr">
@@ -494,7 +494,7 @@ if ($p === 'play') {
 <body data-page="play">
   <main class="wrap">
     <header class="top">
-      <h1>Qui est tu ?</h1>
+      <h1 id="playMainTitle">Qui est tu ?</h1>
       <?php if (!$shareMode): ?>
       <nav>
         <a href="<?= wh_h($BASE) ?>/?p=home">Sets</a>
@@ -529,8 +529,8 @@ if ($p === 'play') {
 }
 
 $csrf = csrf_issue_token();
-$cssHref = append_share_token_to_url($BASE . '/app.css?v=1', $shareMode ? $shareToken : '');
-$jsHref = append_share_token_to_url($BASE . '/app.js?v=1', $shareMode ? $shareToken : '');
+$cssHref = append_share_token_to_url($BASE . '/app.css?v=2', $shareMode ? $shareToken : '');
+$jsHref = append_share_token_to_url($BASE . '/app.js?v=3', $shareMode ? $shareToken : '');
 ?>
 <!doctype html>
 <html lang="fr">
@@ -558,7 +558,7 @@ $jsHref = append_share_token_to_url($BASE . '/app.js?v=1', $shareMode ? $shareTo
       </div>
       <p class="muted">CRUD simple: sets et items (image + légende).</p>
       <div class="row admin-toolbar">
-        <input id="setSearch" class="input-search" placeholder="Rechercher un set (titre ou ID)" type="search" autocomplete="off">
+        <input id="setSearch" class="input-search" placeholder="Rechercher un set (titre)" type="search" autocomplete="off">
         <div id="adminStatus" class="status-pill status-ok">Prêt</div>
       </div>
 
@@ -571,10 +571,7 @@ $jsHref = append_share_token_to_url($BASE . '/app.js?v=1', $shareMode ? $shareTo
         <section>
           <h3>Éditeur</h3>
           <form id="setForm" class="form">
-            <label>
-              <span>ID</span>
-              <input name="id" readonly>
-            </label>
+            <input name="id" type="hidden">
             <label>
               <span>Titre</span>
               <input name="title" required>
@@ -586,7 +583,7 @@ $jsHref = append_share_token_to_url($BASE . '/app.js?v=1', $shareMode ? $shareTo
               <button class="btn" id="btnSaveSet" type="submit">Enregistrer</button>
               <button class="btn danger" id="btnDeleteSet" type="button">Supprimer</button>
               <a class="btn ghost" id="btnPlay" href="#">Jouer</a>
-              <button class="btn ghost" id="btnShare" type="button">Lien 30 min + QR</button>
+              <button class="btn ghost" id="btnShare" type="button">Lien 2h + QR</button>
             </div>
           </form>
         </section>
@@ -631,6 +628,14 @@ $jsHref = append_share_token_to_url($BASE . '/app.js?v=1', $shareMode ? $shareTo
   <script src="<?= wh_h($jsHref) ?>"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
 
 
 

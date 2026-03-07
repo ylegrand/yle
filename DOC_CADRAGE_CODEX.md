@@ -92,3 +92,45 @@ Donner à CODEX un cadre de décision stable pour:
 - Favoriser fichiers + MySQL + PHP standard.
 - Prévoir des dégradations gracieuses si extension absente.
 
+
+---
+
+## 7) Note de cohérence CRUD (à réutiliser sur les futurs projets)
+
+Objectif: garder une expérience admin homogène entre projets (`which`, `word`, et suivants), sans exposer les détails techniques.
+
+- Masquer les IDs techniques côté UI (listes, formulaires, confirmations):
+  - l'ID reste géré en backend,
+  - l'utilisateur manipule des libellés métier (titre, nom, etc.).
+- Garder les mêmes patterns UX admin:
+  - recherche par titre,
+  - statut visible (prêt, enregistrement, erreur),
+  - actions claires (`Enregistrer`, `Supprimer`, `Jouer`, `Lien + QR`).
+- Conserver un flux CRUD en 2 temps pour les sets média:
+  - 1) enregistrer le set,
+  - 2) uploader les médias,
+  - 3) sauvegarde finale de synchronisation.
+- Protéger toutes les écritures admin:
+  - POST + CSRF,
+  - validation stricte des entrées (`safe_id`, types, champs requis).
+- Uniformiser le partage public temporaire:
+  - token signé (HMAC),
+  - expiration courte,
+  - mode public limité à la consultation/lecture du set visé.
+- Préserver la compatibilité `/p/<slug>/...`:
+  - assets relatifs ou construits depuis `SCRIPT_NAME`,
+  - pas de chemin absolu racine (`/app.css`) non préfixé.
+
+---
+
+## 8) Règle anti-collision des helpers PHP (obligatoire)
+
+Cette règle est ajoutée suite à des régressions répétées sur des helpers génériques (`h()` notamment).
+
+- Interdit: définir des fonctions globales génériques dans les projets (`h`, `dd`, `env`, `config`, etc.).
+- Obligatoire: toute fonction utilitaire globale doit être préfixée par le slug projet:
+  - `which_*` pour `which`
+  - `word_*` pour `word`
+  - `<slug>_*` pour tout nouveau projet
+- Contrôle avant livraison: rechercher explicitement les helpers non préfixés dans les fichiers d'entrée (`index.php`, bootstrap, helpers chargés tôt).
+- Exception temporaire: si un helper legacy doit rester, l'encadrer avec `if (!function_exists('...'))` puis planifier son renommage préfixé.

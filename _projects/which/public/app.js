@@ -81,7 +81,7 @@ async function initHome() {
   wrap.innerHTML = sets.map((set) => `
     <article class="set-card">
       <h3>${esc(set.title)}</h3>
-      <p class="muted">ID: ${esc(set.id)} | ${esc(String(set.itemCount || 0))} item(s)</p>
+      <p class="muted">${esc(String(set.itemCount || 0))} item(s)</p>
       <a class="btn" href="${BASE}/?p=play&set=${encodeURIComponent(set.id)}">Jouer</a>
     </article>
   `).join('');
@@ -128,6 +128,7 @@ async function initPlay() {
   const image = el('#playImage');
   const caption = el('#playCaption');
   const hint = el('#playHint');
+  const playMainTitle = el('#playMainTitle');
 
   const loader = ensurePlayLoader();
   const loaderTitle = el('#playLoaderTitle', loader);
@@ -164,6 +165,11 @@ async function initPlay() {
   }
 
   const set = res.set || {};
+  const setLabel = (set.title || setId || '').trim();
+  if (playMainTitle && setLabel) {
+    playMainTitle.textContent = `Quel ${setLabel} es-tu ?`;
+    document.title = `${playMainTitle.textContent} - Jeu`;
+  }
   const rawItems = Array.isArray(set.items) ? set.items.filter((it) => it && it.img) : [];
   if (!rawItems.length) {
     hint.textContent = 'Set vide';
@@ -409,18 +415,19 @@ async function initAdmin() {
     const q = (searchInput?.value || '').trim().toLowerCase();
     const rows = allSets.filter((set) => {
       if (!q) return true;
-      return (set.title || '').toLowerCase().includes(q) || (set.id || '').toLowerCase().includes(q);
+      return (set.title || '').toLowerCase().includes(q);
     });
 
     listEl.innerHTML = rows.map((set) => `
       <div class="list-row ${selectedId === set.id ? 'active' : ''}">
         <div>
           <div class="strong">${esc(set.title)}</div>
-          <div class="muted">${esc(set.id)} • ${esc(String(set.itemCount || 0))} item(s)</div>
+          <div class="muted">${esc(String(set.itemCount || 0))} item(s)</div>
         </div>
         <div class="row">
           <button class="btn ghost" data-act="edit" data-id="${esc(set.id)}">Éditer</button>
           <a class="btn ghost" href="${BASE}/?p=play&set=${encodeURIComponent(set.id)}">Jouer</a>
+          <button class="btn ghost" data-act="share" data-id="${esc(set.id)}">Lien + QR</button>
           <button class="btn danger" data-act="delete" data-id="${esc(set.id)}">Suppr.</button>
         </div>
       </div>
@@ -505,7 +512,7 @@ async function initAdmin() {
     }
     clearAllPending();
     setCurrent(res.set);
-    toast(`Set "${id}" chargé`, 'success');
+    toast('Set chargé', 'success');
   }
 
   async function uploadOne(itemId, file) {
@@ -621,7 +628,9 @@ async function initAdmin() {
 
   async function deleteSetById(id) {
     if (!id || busy) return;
-    if (!window.confirm(`Supprimer le set "${id}" ?`)) return;
+    const target = allSets.find((set) => set.id === id);
+    const name = target?.title || 'ce set';
+    if (!window.confirm(`Supprimer "${name}" ?`)) return;
 
     setBusy(true, 'Suppression...');
     const res = await api('delete_set', { id });
@@ -639,7 +648,7 @@ async function initAdmin() {
     }
 
     await refreshList();
-    toast(`Set "${id}" supprimé`, 'success');
+    toast('Set supprimé', 'success');
     setStatus('Set supprimé', 'ok');
   }
 
@@ -676,6 +685,7 @@ async function initAdmin() {
     const id = btn.dataset.id || '';
     if (btn.dataset.act === 'edit') await loadSet(id);
     if (btn.dataset.act === 'delete') await deleteSetById(id);
+    if (btn.dataset.act === 'share') await openShareModal(id);
   });
 
   itemsEditor.addEventListener('input', (e) => {
@@ -777,6 +787,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (page === 'admin') initAdmin();
   if (page === 'play') initPlay();
 });
+
+
+
+
+
+
 
 
 

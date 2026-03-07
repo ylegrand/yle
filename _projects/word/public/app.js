@@ -1,30 +1,73 @@
 /* Single JS for home + play + admin */
 const BASE = (window.__BASE__ && window.__BASE__ !== "/") ? window.__BASE__ : "";
-const API = (action, params = {}, body = null, isForm = false) => {
+const CSRF = window.__CSRF__ || "";
+const SHARE_TOKEN = window.__SHARE_TOKEN__ || "";
+const SHARE_MODE = !!window.__SHARE_MODE__;
+
+const API = async (action, params = {}, body = null, isForm = false) => {
   const url = new URL(location.origin + BASE + "/?p=api");
   url.searchParams.set("action", action);
-  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
-  return fetch(url.toString(), {
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  if (SHARE_TOKEN) url.searchParams.set("st", SHARE_TOKEN);
+
+  const headers = {};
+  if (!isForm) headers["Content-Type"] = "application/json";
+  if (CSRF) headers["X-CSRF-Token"] = CSRF;
+
+  const resp = await fetch(url.toString(), {
     method: "POST",
-    headers: isForm ? {} : {"Content-Type":"application/json"},
+    headers,
     body: isForm ? body : (body ? JSON.stringify(body) : null)
-  }).then(r => r.json());
+  });
+
+  const data = await resp.json().catch(() => ({ ok: false, error: "Invalid JSON" }));
+  if (!resp.ok && data.ok !== false) {
+    data.ok = false;
+    data.error = data.error || ("HTTP " + resp.status);
+  }
+  return data;
 };
 
 const el = (sel, root=document) => root.querySelector(sel);
 const els = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 const esc = (s) => (s ?? "").toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
+function ensureToastStack() {
+  let stack = el("#toastStack");
+  if (stack) return stack;
+  stack = document.createElement("div");
+  stack.id = "toastStack";
+  stack.className = "toast-stack";
+  document.body.appendChild(stack);
+  return stack;
+}
+
+function toast(message, kind = "info") {
+  const stack = ensureToastStack();
+  const node = document.createElement("div");
+  node.className = `toast toast-${kind}`;
+  node.textContent = message;
+  stack.appendChild(node);
+  window.setTimeout(() => {
+    node.classList.add("hide");
+    window.setTimeout(() => node.remove(), 220);
+  }, 2200);
+}
+
 function assetUrl(u){
   if(!u) return "";
   if(/^https?:\/\//i.test(u)) return u;
   if(/^(blob:|data:)/i.test(u)) return u;
-  const BASE = (window.__BASE__ && window.__BASE__ !== "/") ? window.__BASE__ : "";
-  if(BASE && u.startsWith(BASE)) return u;
-  if(u.startsWith("/")) return BASE + u;
-  return BASE + "/" + u;
-}
 
+  let out = "";
+  if (BASE && u.startsWith(BASE)) out = u;
+  else if (u.startsWith("/")) out = BASE + u;
+  else out = BASE + "/" + u;
+
+  if (!SHARE_MODE || !SHARE_TOKEN) return out;
+  const sep = out.includes("?") ? "&" : "?";
+  return out + sep + "st=" + encodeURIComponent(SHARE_TOKEN);
+}
 function slugify(s){
   return (s||"").toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -41,7 +84,7 @@ async function initHome(){
   wrap.innerHTML = sets.map(s => `
     <div class="card setcard">
       <div class="setcard__title">${esc(s.title)}</div>
-      <div class="muted">ID: ${esc(s.id)} • BPM: ${esc(s.bpm ?? "")}</div>
+      <div class="muted">BPM: ${esc(s.bpm ?? "")} • ${esc(String(s.itemCount || 0))} item(s)</div>
       <div class="row gap">
         <a class="btn" href="${BASE}/?p=play&set=${encodeURIComponent(s.id)}">Jouer</a>
         <a class="btn btn--ghost" href="${BASE}/?p=admin">Éditer</a>
@@ -665,13 +708,55 @@ async function initAdmin(){
   const itemsEditor = el("#itemsEditor");
   const btnDelete = el("#btnDeleteSet");
   const btnPreview = el("#btnPreview");
+  const btnShare = el("#btnShare");
+  const btnSave = el("#btnSaveSet");
+  const statusEl = el("#adminStatus");
+  const searchInput = el("#setSearch");
+
+  const shareModal = el("#shareModal");
+  const shareUrl = el("#shareUrl");
+  const shareExpiry = el("#shareExpiry");
+  const shareQr = el("#shareQr");
+  const btnCopyShare = el("#btnCopyShare");
+  const btnCloseShare = el("#btnCloseShare");
 
   let current = {id:"",title:"",bpm:185,beatsPerGame:64,items:[]};
+  let allSets = [];
+  let selectedId = "";
+  let dirty = false;
+  let busy = false;
 
   const pendingUploads = new Map();
   const pendingPreview = new Map();
 
-  const toast = (msg) => alert(msg);
+  function setStatus(text, tone = "info") {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.className = `status-pill status-${tone}`;
+  }
+
+  function setBusy(next, label = "") {
+    busy = next;
+    if (btnSave) {
+      btnSave.disabled = next;
+      btnSave.setAttribute("aria-busy", next ? "true" : "false");
+      btnSave.textContent = next ? (label || "Traitement...") : "Enregistrer";
+    }
+    btnDelete.disabled = next;
+    btnNew.disabled = next;
+    btnShare.disabled = next;
+  }
+
+  function setDirty(next) {
+    dirty = next;
+    if (dirty) setStatus("Modifications non enregistrees", "warn");
+    else setStatus("Pret", "ok");
+  }
+
+  function ensureLeaveDirty() {
+    if (!dirty || busy) return true;
+    return window.confirm("Vous avez des modifications non enregistrees. Continuer ?");
+  }
 
   function clearPendingImage(itemId){
     const old = pendingPreview.get(itemId);
@@ -708,10 +793,8 @@ async function initAdmin(){
       beatsPerGame: Number(next.beatsPerGame || 64),
       items: normalizeItems(next.items || [])
     };
-    fillForm();
-  }
 
-  function fillForm(){
+    selectedId = current.id;
     form.id.value = current.id || "";
     form.title.value = current.title || "";
     form.bpm.value = current.bpm ?? 185;
@@ -727,7 +810,9 @@ async function initAdmin(){
       btnPreview.setAttribute("aria-disabled", "true");
     }
 
+    renderList();
     renderItems();
+    setDirty(false);
   }
 
   function readFormToCurrent(){
@@ -738,6 +823,29 @@ async function initAdmin(){
     current.items = normalizeItems(current.items);
   }
 
+  function renderList(){
+    const q = (searchInput?.value || "").trim().toLowerCase();
+    const rows = allSets.filter((set) => {
+      if (!q) return true;
+      return (set.title || "").toLowerCase().includes(q);
+    });
+
+    listEl.innerHTML = rows.map(s => `
+      <div class="list-row ${selectedId === s.id ? "active" : ""}">
+        <div>
+          <div class="strong">${esc(s.title)}</div>
+          <div class="muted small">BPM: ${esc(s.bpm ?? "")} • ${esc(String(s.itemCount || 0))} item(s)</div>
+        </div>
+        <div class="row gap wrap">
+          <button class="btn btn--ghost" data-act="edit" data-id="${esc(s.id)}">Editer</button>
+          <a class="btn btn--ghost" href="${BASE}/?p=play&set=${encodeURIComponent(s.id)}">Jouer</a>
+          <button class="btn btn--ghost" data-act="share" data-id="${esc(s.id)}">Lien + QR</button>
+          <button class="btn btn--danger" data-act="delete" data-id="${esc(s.id)}">Supprimer</button>
+        </div>
+      </div>
+    `).join("") || `<div class="muted">Aucun set.</div>`;
+  }
+
   function renderItems(){
     const canAdd = !!current.id;
     const rows = current.items.map((it, idx)=>{
@@ -746,7 +854,7 @@ async function initAdmin(){
       return `
       <tr data-idx="${idx}">
         <td class="col-preview">${preview ? `<img src="${esc(preview)}" alt="">` : `<span class="muted">-</span>`}</td>
-        <td class="col-label"><input data-kind="label" data-idx="${idx}" value="${esc(it.label)}" placeholder="Libellé"></td>
+        <td class="col-label"><input data-kind="label" data-idx="${idx}" value="${esc(it.label)}" placeholder="Libelle"></td>
         <td class="col-status">${pending ? '<span class="status-chip">En attente</span>' : '<span class="muted">OK</span>'}</td>
         <td class="col-actions"><button type="button" class="btn btn--danger" data-action="remove-item" data-idx="${idx}">Supprimer</button></td>
       </tr>`;
@@ -756,11 +864,11 @@ async function initAdmin(){
       <div class="items-toolbar">
         <button type="button" class="btn" id="btnAddImages" ${canAdd ? '' : 'disabled'}>Ajouter image(s)</button>
         <input id="inputAddImages" type="file" accept="image/*" multiple hidden>
-        <span class="muted">${canAdd ? `${current.items.length} image(s)` : `Créez le set puis enregistrez pour ajouter des images`}</span>
+        <span class="muted">${canAdd ? `${current.items.length} image(s)` : `Creez le set puis enregistrez pour ajouter des images`}</span>
       </div>
       <div class="items-table-wrap">
         <table class="items-table">
-          <thead><tr><th>Image</th><th>Libellé</th><th>Etat</th><th>Action</th></tr></thead>
+          <thead><tr><th>Image</th><th>Libelle</th><th>Etat</th><th>Action</th></tr></thead>
           <tbody>${rows || `<tr><td colspan="4" class="muted">Aucune image. Cliquez sur "Ajouter image(s)".</td></tr>`}</tbody>
         </table>
       </div>`;
@@ -769,7 +877,8 @@ async function initAdmin(){
     const inputAddImages = el("#inputAddImages", itemsEditor);
     btnAddImages?.addEventListener("click", ()=>{
       if(!current.id){
-        toast("Enregistrez d'abord le set, puis ajoutez les images.");
+        toast("Enregistrez d'abord le set, puis ajoutez les images.", "warn");
+        setStatus("Creez d'abord le set (titre + enregistrer)", "warn");
         return;
       }
       inputAddImages?.click();
@@ -777,22 +886,28 @@ async function initAdmin(){
     inputAddImages?.addEventListener("change", ()=> addFiles(inputAddImages.files));
   }
 
+  async function uploadOne(itemId, file){
+    const fd = new FormData();
+    fd.append("file", file, file.name || `${itemId}.webp`);
+    return API("upload_image", {set: current.id, item: itemId}, fd, true);
+  }
+
   async function addFiles(fileList){
     if(!current.id){
-      toast("Enregistrez d'abord le set, puis ajoutez les images.");
+      toast("Enregistrez d'abord le set, puis ajoutez les images.", "warn");
+      setStatus("Creez d'abord le set (titre + enregistrer)", "warn");
       return;
     }
     const files = Array.from(fileList || []).filter(f => f && /^image\//i.test(f.type || ""));
     if(!files.length) return;
 
+    setStatus(`Ajout de ${files.length} image(s)...`, "info");
     for(const file of files){
       const itemId = createItemId();
       const row = {id:itemId, label: filenameToLabel(file.name), img:""};
       current.items.push(row);
 
-      const fd = new FormData();
-      fd.append("file", file, file.name || `${itemId}.webp`);
-      const up = await API("upload_image", {set: current.id, item: itemId}, fd, true);
+      const up = await uploadOne(itemId, file);
       if(up.ok){
         row.img = up.url;
       } else {
@@ -801,69 +916,163 @@ async function initAdmin(){
       }
     }
     renderItems();
+    setDirty(true);
+    setStatus("Images ajoutees", "ok");
   }
 
   async function uploadPendingFiles(){
     if(!current.id || pendingUploads.size === 0) return;
-    for(const [itemId, file] of Array.from(pendingUploads.entries())){
-      const fd = new FormData();
-      fd.append("file", file, file.name || `${itemId}.webp`);
-      const up = await API("upload_image", {set: current.id, item: itemId}, fd, true);
+    const entries = Array.from(pendingUploads.entries());
+    let done = 0;
+
+    for(const [itemId, file] of entries){
+      done += 1;
+      setStatus(`Upload images ${done}/${entries.length}...`, "info");
+      const up = await uploadOne(itemId, file);
       if(up.ok){
         const it = current.items.find(x => x.id === itemId);
         if(it) it.img = up.url;
         clearPendingImage(itemId);
+      } else {
+        toast(`Upload echoue (${file.name})`, "error");
       }
     }
   }
 
   async function refreshList(){
-    listEl.textContent = "Chargement…";
+    setStatus("Chargement des sets...", "info");
     const res = await API("list_sets");
-    if(!res.ok){ listEl.textContent = "Erreur"; return; }
-    const sets = res.sets || [];
-    listEl.innerHTML = sets.map(s => `
-      <div class="list__row">
-        <div>
-          <div class="strong">${esc(s.title)}</div>
-          <div class="muted small">ID: ${esc(s.id)} • BPM: ${esc(s.bpm ?? "")}</div>
-        </div>
-        <div class="row gap wrap">
-          <button class="btn btn--ghost" data-act="edit" data-id="${esc(s.id)}">Éditer</button>
-          <a class="btn btn--ghost" href="${BASE}/?p=play&set=${encodeURIComponent(s.id)}">Jouer</a>
-          <button class="btn btn--danger" data-act="delete" data-id="${esc(s.id)}">Supprimer</button>
-        </div>
-      </div>
-    `).join("") || `<div class="muted">Aucun set.</div>`;
+    if(!res.ok){
+      listEl.textContent = res.error || "Erreur";
+      setStatus("Erreur de chargement", "error");
+      return;
+    }
+    allSets = res.sets || [];
+    renderList();
+    setStatus("Pret", "ok");
   }
 
   async function loadSet(id){
+    if (!ensureLeaveDirty()) return;
+    setBusy(true, "Ouverture...");
     const res = await API("get_set", {id});
-    if(!res.ok){ alert("Set introuvable"); return; }
+    setBusy(false);
+    if(!res.ok){
+      toast(res.error || "Set introuvable", "error");
+      return;
+    }
     clearAllPending();
     setCurrent(res.set);
+    toast("Set charge", "success");
   }
 
-  function newSet(){
+  async function deleteSetById(id){
+    if(!id || busy) return;
+    const target = allSets.find((set) => set.id === id);
+    const name = target?.title || "ce set";
+    if(!confirm(`Supprimer "${name}" ?`)) return;
+
+    setBusy(true, "Suppression...");
+    const res = await API("delete_set", {id});
+    setBusy(false);
+    if(!res.ok){
+      toast(res.error || "Erreur suppression", "error");
+      setStatus("Echec suppression", "error");
+      return;
+    }
+    if(current.id === id) {
+      clearAllPending();
+      setCurrent({id:"",title:"",bpm:185,beatsPerGame:64,items:[]});
+    }
+
+    await refreshList();
+    toast("Set supprime", "success");
+    setStatus("Set supprime", "ok");
+  }
+
+  async function saveCurrent(){
+    if (busy) return;
+
+    readFormToCurrent();
+    if (!current.title) {
+      toast("Titre requis", "error");
+      setStatus("Le titre est obligatoire", "error");
+      return;
+    }
+
+    setBusy(true, "Enregistrement...");
+    setStatus("Enregistrement du set...", "info");
+
+    const first = await API("save_set", {}, current);
+    if (!first.ok) {
+      setBusy(false);
+      toast(first.error || "Erreur enregistrement", "error");
+      setStatus("Echec enregistrement", "error");
+      return;
+    }
+
+    setCurrent(first.set);
+    await uploadPendingFiles();
+
+    const finalSave = await API("save_set", {}, current);
+    if (!finalSave.ok) {
+      setBusy(false);
+      toast(finalSave.error || "Erreur finalisation", "error");
+      setStatus("Echec finalisation", "error");
+      return;
+    }
+
+    setCurrent(finalSave.set);
+    await refreshList();
+    setBusy(false);
+    setDirty(false);
+    setStatus("Enregistre", "ok");
+    toast("Set enregistre", "success");
+  }
+
+  async function openShareModal(setId) {
+    const res = await API("create_share_link", { id: setId });
+    if (!res.ok) {
+      toast(res.error || "Erreur creation lien", "error");
+      return;
+    }
+
+    shareUrl.value = res.url;
+    const exp = new Date(res.expiresAt);
+    shareExpiry.textContent = "Valable jusqu'au " + exp.toLocaleString("fr-FR");
+
+    shareQr.innerHTML = "";
+    const renderQr = () => {
+      if (typeof window.QRCode === "undefined") return;
+      new window.QRCode(shareQr, {
+        text: res.url,
+        width: 180,
+        height: 180,
+        correctLevel: window.QRCode.CorrectLevel.M
+      });
+    };
+
+    renderQr();
+    if (typeof window.QRCode === "undefined") window.setTimeout(renderQr, 250);
+    shareModal.hidden = false;
+  }
+
+  btnNew.addEventListener("click", ()=>{
+    if (!ensureLeaveDirty()) return;
     clearAllPending();
     setCurrent({id:"",title:"",bpm:185,beatsPerGame:64,items:[]});
-  }
-
-  btnNew.addEventListener("click", newSet);
+    if (searchInput) searchInput.value = "";
+    renderList();
+    toast("Nouveau set pret", "info");
+  });
 
   listEl.addEventListener("click", async (e)=>{
     const b = e.target.closest("button[data-act]");
     if(!b) return;
-    if(b.dataset.act === "edit") loadSet(b.dataset.id);
-    if(b.dataset.act === "delete"){
-      const id = b.dataset.id || "";
-      if(!id) return;
-      if(!confirm(`Supprimer le set "${id}" ?`)) return;
-      const res = await API("delete_set", {id});
-      if(!res.ok){ alert("Erreur suppression"); return; }
-      if(current.id === id) newSet();
-      await refreshList();
-    }
+    const id = b.dataset.id || "";
+    if(b.dataset.act === "edit") await loadSet(id);
+    if(b.dataset.act === "delete") await deleteSetById(id);
+    if(b.dataset.act === "share") await openShareModal(id);
   });
 
   itemsEditor.addEventListener("input", (e)=>{
@@ -871,7 +1080,10 @@ async function initAdmin(){
     if(!(inp instanceof HTMLInputElement)) return;
     const idx = Number(inp.dataset.idx);
     if(Number.isNaN(idx)) return;
-    if(inp.dataset.kind === "label") current.items[idx].label = inp.value;
+    if(inp.dataset.kind === "label") {
+      current.items[idx].label = inp.value;
+      setDirty(true);
+    }
   });
 
   itemsEditor.addEventListener("click", (e)=>{
@@ -885,40 +1097,66 @@ async function initAdmin(){
       current.items.splice(idx, 1);
       if(removed?.id) clearPendingImage(removed.id);
       renderItems();
+      setDirty(true);
     }
   });
 
   form.addEventListener("submit", async (e)=>{
     e.preventDefault();
-    readFormToCurrent();
+    await saveCurrent();
+  });
 
-    const res = await API("save_set", {}, current);
-    if(!res.ok){ alert(res.error || "Erreur save"); return; }
-    current = res.set;
-
-    await uploadPendingFiles();
-
-    const res2 = await API("save_set", {}, current);
-    if(!res2.ok){ alert(res2.error || "Erreur save (post-upload)"); return; }
-    current = res2.set;
-
-    fillForm();
-    await refreshList();
-    alert("Enregistré");
+  form.addEventListener("input", () => {
+    if (!busy) setDirty(true);
   });
 
   btnDelete.addEventListener("click", async ()=>{
     readFormToCurrent();
     if(!current.id) return;
-    if(!confirm(`Supprimer le set "${current.id}" ?`)) return;
-    const res = await API("delete_set", {id: current.id});
-    if(!res.ok){ alert("Erreur suppression"); return; }
-    newSet();
-    await refreshList();
+    await deleteSetById(current.id);
+  });
+
+  btnShare?.addEventListener("click", async ()=>{
+    readFormToCurrent();
+    if(!current.id){
+      toast("Enregistrez d'abord le set", "error");
+      return;
+    }
+    await openShareModal(current.id);
+  });
+
+  btnCopyShare?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl.value || "");
+      toast("Lien copie", "success");
+    } catch {
+      shareUrl.select();
+      document.execCommand("copy");
+      toast("Lien copie", "success");
+    }
+  });
+
+  const closeShare = () => { if (shareModal) shareModal.hidden = true; };
+  btnCloseShare?.addEventListener("click", closeShare);
+  el(".modal__backdrop", shareModal)?.addEventListener("click", closeShare);
+
+  searchInput?.addEventListener("input", renderList);
+
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      saveCurrent();
+    }
+  });
+
+  window.addEventListener("beforeunload", (e) => {
+    if (!dirty) return;
+    e.preventDefault();
+    e.returnValue = "";
   });
 
   await refreshList();
-  newSet();
+  setCurrent({id:"",title:"",bpm:185,beatsPerGame:64,items:[]});
 }
 // ---------- BOOT ----------
 document.addEventListener("DOMContentLoaded", ()=>{
@@ -927,4 +1165,5 @@ document.addEventListener("DOMContentLoaded", ()=>{
   if(p === "play") initPlay();
   if(p === "admin") initAdmin();
 });
+
 
