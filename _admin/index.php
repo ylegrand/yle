@@ -16,12 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$u) {
   $email = trim($_POST['email'] ?? '');
   $pass  = $_POST['password'] ?? '';
   if (!login($pdo, $email, $pass)) $error = "Login incorrect ou compte inactif";
-  else { header('Location: /'); exit; }
+  else { portal_redirect('/'); }
 }
 
 if ($u && !is_superadmin($u)) {
-  header('Location: /');
-  exit;
+  portal_redirect('/');
 }
 
 $flash = flash_get();
@@ -32,13 +31,13 @@ $flash = flash_get();
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin</title>
-  <link rel="icon" type="image/png" href="/assets/favicon.png">
-  <link rel="stylesheet" href="/assets/portal.css">
+  <link rel="icon" type="image/png" href="<?=h(portal_path('/assets/favicon.png'))?>">
+  <link rel="stylesheet" href="<?=h(portal_path('/assets/portal.css'))?>">
 </head>
 <body>
 <main class="container stack">
   <header class="portal-brand">
-    <img src="/assets/brand-logo.png" alt="Logo YLE">
+    <img src="<?=h(portal_path('/assets/brand-logo.png'))?>" alt="Logo YLE">
     <div>
       <div class="portal-brand-title">YLE Portail</div>
       <div class="portal-brand-subtitle">Espace central</div>
@@ -69,11 +68,11 @@ $flash = flash_get();
     <?php else: ?>
       <p class="small">Connecté: <b><?=h($u['email'])?></b></p>
       <nav class="nav-links">
-        <a href="/_admin/users.php">Utilisateurs</a>
-        <a href="/_admin/grants.php">Droits (matrice)</a>
-        <a href="/_admin/projects.php">Projets (auto)</a>
-        <a href="/">Accueil apps</a>
-        <a href="/_admin/logout.php">Logout</a>
+        <a href="<?=h(portal_path('/_admin/users.php'))?>">Utilisateurs</a>
+        <a href="<?=h(portal_path('/_admin/grants.php'))?>">Droits (matrice)</a>
+        <a href="<?=h(portal_path('/_admin/projects.php'))?>">Projets (auto)</a>
+        <a href="<?=h(portal_path('/'))?>">Accueil apps</a>
+        <a href="<?=h(portal_path('/_admin/logout.php'))?>">Logout</a>
       </nav>
     <?php endif; ?>
   </section>

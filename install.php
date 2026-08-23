@@ -1,6 +1,8 @@
 <?php
 $cfg = require __DIR__ . '/_app/config.php';
 require __DIR__ . '/_app/db.php';
+require __DIR__ . '/_app/http.php';
+portal_init_base_path();
 
 function h($s){ return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 
@@ -102,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Install</title>
-  <link rel="stylesheet" href="/assets/portal.css">
+  <link rel="stylesheet" href="<?=h(portal_path('/assets/portal.css'))?>">
 </head>
 <body>
 <main class="container stack">
@@ -112,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <?php if ($done): ?>
       <p class="msg ok">
-        OK. Va sur <a href="/_admin/">/_admin/</a>. Ensuite supprime/renomme <code>install.php</code>.
+        OK. Va sur <a href="<?=h(portal_path('/_admin/'))?>">/_admin/</a>. Ensuite supprime/renomme <code>install.php</code>.
       </p>
     <?php endif; ?>
 

@@ -128,3 +128,24 @@ Conserver `editor/admin` pour compatibilité technique, sans les imposer côté 
 - Vérifier que le projet est synchronisé en admin.
 - Vérifier les droits utilisateur sur le projet.
 
+
+---
+
+## 8) Projet avec logique serveur ou routes externes
+
+Un projet qui contient de la logique métier doit la conserver dans son propre dossier, par exemple :
+
+```text
+_projects/<slug>/
+  public/
+  src/
+  migrations/
+  project.php          # optionnel
+  server/              # optionnel
+```
+
+Le portail central ne doit pas contenir de classes métier propres à un projet.
+
+Pour un endpoint qui ne peut pas passer par l'authentification session de `/p/<slug>/` (OAuth, MCP Bearer, webhook...), le projet peut déclarer des `external_routes` dans `project.php` et un `external_handler`. Le routeur central ne connaît alors que le mécanisme générique de délégation, jamais le nom ni les classes du projet.
+
+Pour un manifest PWA servi derrière l'ACL, utiliser `crossorigin="use-credentials"` sur `<link rel="manifest">` afin que le navigateur transmette le cookie de session.

@@ -1,129 +1,29 @@
 <?php
 
 $cfg = require __DIR__ . '/_app/config.php';
-require __DIR__ . '/_app/db.php';
-require __DIR__ . '/_app/auth.php';
-require __DIR__ . '/_app/acl.php';
-require __DIR__ . '/_app/projects.php';
-require __DIR__ . '/_app/fit.php';
+
+require_once __DIR__ . '/_app/http.php';
+require_once __DIR__ . '/_app/db.php';
+require_once __DIR__ . '/_app/auth.php';
+require_once __DIR__ . '/_app/acl.php';
+require_once __DIR__ . '/_app/projects.php';
 
 $pdo = db($cfg);
+portal_init_base_path();
 start_session($cfg);
 
-// Keep the deployment base (for example /yle in WAMP) when project routing
-// later replaces SCRIPT_NAME with its virtual project URL.
-$_SERVER['PORTAL_BASE_PATH'] = fit_base_path();
+$projectsRoot = __DIR__ . '/_projects';
+$requestPath = portal_request_path();
 
-if (FitMcpController::handle($pdo, $cfg)) {
+if (
+    $requestPath !== '/'
+    && !str_starts_with($requestPath, '/p/')
+    && dispatch_project_external_route($pdo, $cfg, $projectsRoot, $requestPath)
+) {
     exit;
 }
-
-$projectsRoot = __DIR__ . '/_projects';
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
-
-function portal_send_project_asset(string $path, string $extension): never {
-    $mimeTypes = [
-        'css' => 'text/css; charset=utf-8',
-        'js' => 'text/javascript; charset=utf-8',
-        'json' => 'application/json; charset=utf-8',
-        'svg' => 'image/svg+xml',
-        'png' => 'image/png',
-        'jpg' => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'gif' => 'image/gif',
-        'webp' => 'image/webp',
-        'ico' => 'image/x-icon',
-        'wav' => 'audio/wav',
-        'ogg' => 'audio/ogg',
-        'm4a' => 'audio/mp4',
-        'mp3' => 'audio/mpeg',
-        'woff' => 'font/woff',
-        'woff2' => 'font/woff2',
-        'webmanifest' => 'application/manifest+json; charset=utf-8',
-    ];
-
-    if (!isset($mimeTypes[$extension]) || !is_file($path) || !is_readable($path)) {
-        http_response_code(404);
-        exit('Not found');
-    }
-
-    $size = filesize($path);
-    if ($size === false) {
-        http_response_code(404);
-        exit('Not found');
-    }
-
-    $start = 0;
-    $end = max(0, $size - 1);
-    $status = 200;
-    $range = (string) ($_SERVER['HTTP_RANGE'] ?? '');
-
-    if ($size > 0 && preg_match('/^bytes=(\d*)-(\d*)$/', $range, $matches)) {
-        if ($matches[1] === '') {
-            $suffixLength = (int) $matches[2];
-            $start = max(0, $size - $suffixLength);
-        } else {
-            $start = (int) $matches[1];
-        }
-
-        if ($matches[2] !== '') {
-            $end = min($end, (int) $matches[2]);
-        }
-
-        if ($start > $end || $start >= $size) {
-            http_response_code(416);
-            header('Content-Range: bytes */' . $size);
-            exit;
-        }
-
-        $status = 206;
-    }
-
-    $length = $size === 0 ? 0 : ($end - $start + 1);
-    http_response_code($status);
-    header('Content-Type: ' . $mimeTypes[$extension]);
-    header('X-Content-Type-Options: nosniff');
-    header('Cache-Control: private, max-age=3600');
-    header('Accept-Ranges: bytes');
-    header('Content-Length: ' . $length);
-    if ($status === 206) {
-        header('Content-Range: bytes ' . $start . '-' . $end . '/' . $size);
-    }
-
-    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
-        if ($status === 200) {
-            readfile($path);
-        } else {
-            $handle = fopen($path, 'rb');
-            if ($handle === false) {
-                http_response_code(500);
-                exit('Internal server error');
-            }
-
-            fseek($handle, $start);
-            $remaining = $length;
-            while ($remaining > 0 && !feof($handle)) {
-                $chunk = fread($handle, min(8192, $remaining));
-                if ($chunk === false) {
-                    break;
-                }
-                echo $chunk;
-                $remaining -= strlen($chunk);
-            }
-            fclose($handle);
-        }
-    }
-    exit;
-}
-
-function app_base_url(): string {
-    $https = $_SERVER['HTTPS'] ?? '';
-    $isHttps = $https === 'on' || $https === '1';
-    $scheme = $isHttps ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    return $scheme . '://' . $host;
-}
 
 function b64url_decode(string $value): string|false {
     $pad = strlen($value) % 4;
@@ -174,7 +74,7 @@ function parse_temp_share_token(array $cfg, string $token, string $expectedSlug)
     ];
 }
 
-$uri = fit_request_path();
+$uri = $requestPath;
 $uri = rtrim($uri, '/');
 if ($uri === '') $uri = '/';
 
@@ -194,14 +94,13 @@ if ($uri === '/') {
 
     $user = current_user($pdo);
     if (!$user) {
-        header('Location: ' . fit_base_path() . '/_admin/');
-        exit;
+        portal_redirect('/_admin/');
     }
 
-    echo '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Applications</title><link rel="icon" type="image/png" href="/assets/favicon.png">
-  <link rel="stylesheet" href="/assets/portal.css"></head><body><main class="container stack">
+    echo '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Applications</title><link rel="icon" type="image/png" href="' . h(portal_path('/assets/favicon.png')) . '">
+  <link rel="stylesheet" href="' . h(portal_path('/assets/portal.css')) . '"></head><body><main class="container stack">
   <header class="portal-brand">
-    <img src="/assets/brand-logo.png" alt="Logo YLE">
+    <img src="' . h(portal_path('/assets/brand-logo.png')) . '" alt="Logo YLE">
     <div>
       <div class="portal-brand-title">YLE Portail</div>
       <div class="portal-brand-subtitle">Espace central</div>
@@ -211,9 +110,9 @@ if ($uri === '/') {
     echo '<div class="topbar"><h1>Applications</h1><span class="badge">Connecté : ' . h($user['email']) . '</span></div>';
     echo '<nav class="nav-links">';
     if (is_superadmin($user)) {
-        echo '<a href="/_admin/">Admin</a>';
+        echo '<a href="' . h(portal_path('/_admin/')) . '">Admin</a>';
     }
-    echo '<a href="/_admin/logout.php">Logout</a></nav>';
+    echo '<a href="' . h(portal_path('/_admin/logout.php')) . '">Logout</a></nav>';
 
     if (is_superadmin($user)) {
         $rows = $pdo->query("SELECT slug FROM projects WHERE is_active=1 AND deleted_at IS NULL ORDER BY slug")->fetchAll();
@@ -231,21 +130,20 @@ if ($uri === '/') {
         $rows = $st->fetchAll();
     }
 
-    $baseUrl = app_base_url();
-
     echo '<ul class="project-list">';
     foreach ($rows as $r) {
         $slug = (string)$r['slug'];
-        $projectHref = '/p/' . rawurlencode($slug) . '/';
-        $projectUrl = $baseUrl . $projectHref;
+        $projectPath = '/p/' . rawurlencode($slug) . '/';
+        $projectHref = portal_path($projectPath);
+        $projectUrl = portal_absolute_url($projectPath);
 
         $faviconCandidates = [
-            '/p/' . rawurlencode($slug) . '/favicon.ico',
-            '/p/' . rawurlencode($slug) . '/favicon/favicon.ico',
-            '/p/' . rawurlencode($slug) . '/favicon/favicon.svg',
-            '/p/' . rawurlencode($slug) . '/favicon/favicon-96x96.png',
-            '/p/' . rawurlencode($slug) . '/apple-touch-icon.png',
-            '/p/' . rawurlencode($slug) . '/favicon/apple-touch-icon.png',
+            portal_path('/p/' . rawurlencode($slug) . '/favicon.ico'),
+            portal_path('/p/' . rawurlencode($slug) . '/favicon/favicon.ico'),
+            portal_path('/p/' . rawurlencode($slug) . '/favicon/favicon.svg'),
+            portal_path('/p/' . rawurlencode($slug) . '/favicon/favicon-96x96.png'),
+            portal_path('/p/' . rawurlencode($slug) . '/apple-touch-icon.png'),
+            portal_path('/p/' . rawurlencode($slug) . '/favicon/apple-touch-icon.png'),
         ];
 
         echo '<li class="project-item">';
@@ -388,16 +286,7 @@ if (preg_match('#^/p/([^/]+)(/.*)?$#', $uri, $m)) {
     $slug = $m[1];
     $path = $m[2] ?? '/';
 
-    // A direct project URL must work even before the home page has refreshed
-    // the filesystem catalogue. Discovery only inserts/updates local project
-    // metadata; ACL remains enforced immediately afterwards.
-    try {
-        sync_projects_from_filesystem($pdo, $projectsRoot);
-    } catch (Throwable $e) {
-        // The subsequent realpath and ACL checks remain authoritative.
-    }
-
-    if (!preg_match('/^[a-zA-Z0-9._-]+$/', $slug) || $slug === '.' || $slug === '..') {
+    if (!project_slug_is_valid($slug) || !ensure_project_registered($pdo, $projectsRoot, $slug)) {
         http_response_code(404);
         exit('Not found');
     }
@@ -410,8 +299,7 @@ if (preg_match('#^/p/([^/]+)(/.*)?$#', $uri, $m)) {
     } else {
         $shareGrant = parse_temp_share_token($cfg, (string)($_GET['st'] ?? ''), $slug);
         if ($shareGrant === null) {
-            header('Location: ' . fit_base_path() . '/_admin/');
-            exit;
+            portal_redirect('/_admin/');
         }
 
         $_SERVER['PORTAL_TEMP_ACCESS'] = '1';
@@ -419,35 +307,19 @@ if (preg_match('#^/p/([^/]+)(/.*)?$#', $uri, $m)) {
         $_SERVER['PORTAL_TEMP_EXP'] = (string)$shareGrant['exp'];
     }
 
-    $base = realpath($projectsRoot . '/' . $slug);
-    if (!$base || !is_dir($base)) {
-        http_response_code(404);
-        exit("Project not found");
-    }
-
-    // Si dossier public existe → webroot = public
-    $webroot = is_dir($base . '/public')
-        ? realpath($base . '/public')
-        : $base;
-
+    $webroot = project_webroot($projectsRoot, $slug);
     if (!$webroot) {
-        http_response_code(500);
-        exit("Invalid project");
-    }
-
-    $rel = ltrim($path, '/');
-
-    if ($rel === '') {
-        $rel = 'index.php';
-    }
-
-    $target = realpath($webroot . '/' . $rel);
-
-    $webrootPrefix = rtrim($webroot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-    if (!$target || !str_starts_with($target, $webrootPrefix)) {
         http_response_code(404);
-        exit("Not found");
+        exit('Project not found');
     }
+
+    $target = project_resolve_target($webroot, $path);
+    if (!$target) {
+        http_response_code(404);
+        exit('Not found');
+    }
+
+    $rel = ltrim(str_replace('\\', '/', substr($target, strlen(rtrim($webroot, DIRECTORY_SEPARATOR)) + 1)), '/');
 
     $ext = strtolower(pathinfo($target, PATHINFO_EXTENSION));
 
@@ -463,11 +335,11 @@ if (preg_match('#^/p/([^/]+)(/.*)?$#', $uri, $m)) {
        Exécution PHP avec contexte corrigé
        ============================================================ */
 
-    $virtual = fit_base_path() . "/p/$slug/" . $rel;
+    $virtual = portal_path("/p/$slug/" . $rel);
 
     $_SERVER['SCRIPT_NAME'] = $virtual;
     $_SERVER['PHP_SELF'] = $virtual;
-    $_SERVER['REQUEST_URI'] = $virtual;
+    $_SERVER['REQUEST_URI'] = $virtual . (((string) ($_SERVER['QUERY_STRING'] ?? '')) !== '' ? '?' . $_SERVER['QUERY_STRING'] : '');
 
     chdir(dirname($target));
     require $target;

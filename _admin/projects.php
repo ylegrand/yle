@@ -30,13 +30,13 @@ $projects = $pdo->query("SELECT slug,is_active,last_seen_at,deleted_at FROM proj
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Projets</title>
-  <link rel="icon" type="image/png" href="/assets/favicon.png">
-  <link rel="stylesheet" href="/assets/portal.css">
+  <link rel="icon" type="image/png" href="<?=h(portal_path('/assets/favicon.png'))?>">
+  <link rel="stylesheet" href="<?=h(portal_path('/assets/portal.css'))?>">
 </head>
 <body>
 <main class="container stack">
   <header class="portal-brand">
-    <img src="/assets/brand-logo.png" alt="Logo YLE">
+    <img src="<?=h(portal_path('/assets/brand-logo.png'))?>" alt="Logo YLE">
     <div>
       <div class="portal-brand-title">YLE Portail</div>
       <div class="portal-brand-subtitle">Espace central</div>
@@ -45,7 +45,7 @@ $projects = $pdo->query("SELECT slug,is_active,last_seen_at,deleted_at FROM proj
   <section class="card stack">
     <div class="topbar">
       <h2>Projets</h2>
-      <nav class="nav-links"><a href="/_admin/">← Menu</a><a href="/">Accueil apps</a></nav>
+      <nav class="nav-links"><a href="<?=h(portal_path('/_admin/'))?>">← Menu</a><a href="<?=h(portal_path('/'))?>">Accueil apps</a></nav>
     </div>
 
     <?php if ($flash): ?>
@@ -65,7 +65,7 @@ $projects = $pdo->query("SELECT slug,is_active,last_seen_at,deleted_at FROM proj
           <td><?= $p['is_active'] ? 'oui' : 'non' ?></td>
           <td><?=h($p['last_seen_at'] ?? '')?></td>
           <td><?=h($p['deleted_at'] ?? '')?></td>
-          <td><?php if ($p['is_active']): ?><a href="/p/<?=rawurlencode($p['slug'])?>/">ouvrir</a><?php endif; ?></td>
+          <td><?php if ($p['is_active']): ?><a href="<?=h(portal_path('/p/' . rawurlencode($p['slug']) . '/'))?>">ouvrir</a><?php endif; ?></td>
         </tr>
         <?php endforeach; ?>
       </table>

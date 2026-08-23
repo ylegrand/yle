@@ -21,20 +21,22 @@ Le module ne contient ni appel LLM côté serveur, ni authentification locale, n
 
 ## Migration production OVH
 
-Les migrations sont strictement additives : `migrations/202608230001_fit_core.sql` (socle Fit) et `migrations/202608230002_fit_mcp_oauth.sql` (OAuth MCP). Elles ne modifient ni `users`, ni l'authentification, ni les ACL existantes.
+Les migrations sont strictement additives : `_projects/fit/migrations/202608230001_fit_core.sql` (socle Fit) et `_projects/fit/migrations/202608230002_fit_mcp_oauth.sql` (OAuth MCP). Elles ne modifient ni `users`, ni l'authentification, ni les ACL existantes.
 
 1. Sauvegarder la base depuis phpMyAdmin / OVH.
 2. Importer les deux fichiers SQL dans l'ordre, via phpMyAdmin. Ils créent 23 tables `fit_*`.
 3. Si un accès CLI PHP est disponible, préférer `php scripts/migrate.php`; le runner enregistre les migrations déjà appliquées dans `schema_migrations` et est relançable sans effet de bord.
 4. Vérifier : `SHOW TABLES LIKE 'fit_%';` doit retourner 21 tables, puis se connecter au portail et ouvrir `/p/fit/` avec un compte autorisé.
 
-Le runner est réservé au CLI et les dossiers `migrations/` et `scripts/` sont bloqués en HTTP par `.htaccess`.
+Le runner est réservé au CLI. Les migrations Fit restent dans le projet et sont découvertes par `scripts/migrate.php`; `/_projects` et `/scripts` restent bloqués en HTTP par `.htaccess`.
 
 ## Écritures conversationnelles
 
 Les outils MCP `fit_save_profile`, `fit_save_rule_block`, `fit_open_or_resume_draft`, `fit_checkpoint_draft` et `fit_close_draft` sont disponibles. Ils exigent le scope OAuth `fit.write` et l'argument explicite `confirmed=true`; les lectures restent sous `fit.read`. Les séances utilisent les transactions du service existant.
 
 ## Intégration conversationnelle
+
+Le code métier Fit (`src/`), ses routes externes (`server/` + `project.php`), ses migrations et son interface `public/` sont désormais contenus sous `_projects/fit/`. Le portail central ne référence plus Fit directement.
 
 L'interface Web reste volontairement en lecture seule, comme prévu au cadrage. Le guide de mise en œuvre et de recette ChatGPT/Claude est disponible dans `FITGPT_CHATGPT_CLAUDE_HOWTO.md`. Le client conversationnel doit appeler le service avec l'identité portail vérifiée et non un secret utilisateur.
 

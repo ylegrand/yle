@@ -8,8 +8,7 @@ if (!isset($pdo, $user) || !($pdo instanceof PDO) || !is_array($user) || !isset(
   exit('Forbidden');
 }
 
-require_once __DIR__ . '/../../../_app/fit.php';
-require_once __DIR__ . '/../../../_app/csrf.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 function fit_web_h(mixed $value): string {
   return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -34,7 +33,7 @@ $configuredBlocks = count(array_filter(
 $totalBlocks = count($configuration['blocks']);
 $base = rtrim(dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/p/fit/index.php')), '/\\');
 if ($base === '') {
-  $base = '/p/fit';
+  $base = portal_path('/p/fit');
 }
 $page = (string) ($_GET['page'] ?? 'dashboard');
 if ($page === 'configure') {
@@ -77,7 +76,7 @@ if ($page === 'configure') {
       <h1>Contexte d’entraînement</h1>
       <p class="muted">Les décisions restent préparées par le coach conversationnel ; le portail conserve les faits, versions et historiques.</p>
     </div>
-    <div><a class="back-link" href="<?= fit_web_h($base) ?>/?page=configure">Configurer</a> <a class="back-link" href="<?= fit_web_h(fit_base_path()) ?>/_admin/">Retour au portail</a></div>
+    <div><a class="back-link" href="<?= fit_web_h($base) ?>/?page=configure">Configurer</a> <a class="back-link" href="<?= fit_web_h(portal_path('/_admin/')) ?>">Retour au portail</a></div>
   </header>
 
   <section class="summary-grid" aria-label="Résumé Fit">

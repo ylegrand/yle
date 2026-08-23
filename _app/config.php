@@ -53,18 +53,6 @@ function env_bool(string $key, bool $default): bool {
   return in_array($raw, ['1', 'true', 'yes', 'on'], true);
 }
 
-function portal_base_path(): string {
-  if (isset($_SERVER['PORTAL_BASE_PATH'])) {
-    return (string) $_SERVER['PORTAL_BASE_PATH'];
-  }
-  $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
-  $base = rtrim(str_replace('\\', '/', dirname($script)), '/');
-  if (str_ends_with($base, '/_admin')) {
-    $base = rtrim(dirname($base), '/');
-  }
-  return ($base === '' || $base === '.') ? '' : $base;
-}
-
 function portal_configure_production_error_handling(array $cfg): void {
   if (PHP_SAPI === 'cli' || ($cfg['app_env'] ?? 'prod') !== 'prod') {
     return;
@@ -123,9 +111,6 @@ $config = [
   'db_pass' => env_value('DB_PASS', ''),
   'share_token_secret' => env_value('SHARE_TOKEN_SECRET', ''),
   'install_enabled' => env_bool('INSTALL_ENABLED', false),
-  'fit_mcp_enabled' => env_bool('FIT_MCP_ENABLED', false),
-  'fit_mcp_base_url' => rtrim((string) env_value('FIT_MCP_BASE_URL', ''), '/'),
-  'fit_oauth_clients' => (string) env_value('FIT_OAUTH_CLIENTS', ''),
 
   // sécurité cookies session
   'cookie_secure' => $cookieSecure,

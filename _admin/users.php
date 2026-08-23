@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   } catch (Throwable $e) {
     flash_set('error', "Erreur: " . $e->getMessage());
   }
-  header('Location: /_admin/users.php'); exit;
+  portal_redirect('/_admin/users.php');
 }
 
 $csrf = csrf_token($pdo, $me);
@@ -66,13 +66,13 @@ $users = $pdo->query("SELECT id,email,CAST(is_superadmin AS UNSIGNED) AS is_supe
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Utilisateurs</title>
-  <link rel="icon" type="image/png" href="/assets/favicon.png">
-  <link rel="stylesheet" href="/assets/portal.css">
+  <link rel="icon" type="image/png" href="<?=h(portal_path('/assets/favicon.png'))?>">
+  <link rel="stylesheet" href="<?=h(portal_path('/assets/portal.css'))?>">
 </head>
 <body>
 <main class="container stack">
   <header class="portal-brand">
-    <img src="/assets/brand-logo.png" alt="Logo YLE">
+    <img src="<?=h(portal_path('/assets/brand-logo.png'))?>" alt="Logo YLE">
     <div>
       <div class="portal-brand-title">YLE Portail</div>
       <div class="portal-brand-subtitle">Espace central</div>
@@ -81,7 +81,7 @@ $users = $pdo->query("SELECT id,email,CAST(is_superadmin AS UNSIGNED) AS is_supe
   <section class="card stack">
     <div class="topbar">
       <h2>Utilisateurs</h2>
-      <nav class="nav-links"><a href="/_admin/">← Menu</a><a href="/">Accueil apps</a></nav>
+      <nav class="nav-links"><a href="<?=h(portal_path('/_admin/'))?>">← Menu</a><a href="<?=h(portal_path('/'))?>">Accueil apps</a></nav>
     </div>
 
     <?php if ($flash): ?>

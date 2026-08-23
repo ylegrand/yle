@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/http.php';
 
 function start_session(array $cfg): void {
   if (session_status() === PHP_SESSION_ACTIVE) return;
@@ -7,7 +8,7 @@ function start_session(array $cfg): void {
   $secure = !empty($cfg['cookie_secure']);
   session_set_cookie_params([
     'lifetime' => 0,
-    'path' => '/',
+    'path' => portal_base_path() === '' ? '/' : portal_base_path() . '/',
     'domain' => '',
     'secure' => $secure,
     'httponly' => true,
@@ -34,10 +35,11 @@ function is_superadmin(array $user): bool {
   return ((int)($user['is_superadmin'] ?? 0)) === 1;
 }
 
-function require_login(PDO $pdo, string $redirect = '/_admin/'): array {
+function require_login(PDO $pdo, ?string $redirect = null): array {
   $u = current_user($pdo);
   if (!$u) {
-    header("Location: $redirect");
+    $target = $redirect === null ? portal_path('/_admin/') : $redirect;
+    header('Location: ' . $target);
     exit;
   }
   return $u;

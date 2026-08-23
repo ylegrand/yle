@@ -46,3 +46,8 @@ Objectif: intégrer/adapter des projets sans casser la sécurité du portail.
 - `HOW_TO_ADAPT_NEW_PROJECT.md`
 - `SECURITY_ENV_AND_SECRETS.md`
 
+
+## 7) Isolation des projets
+- Le cœur `/_app` ne doit pas contenir de contrôleur/service métier nommé d'après un projet.
+- La logique métier, les migrations et les intégrations externes d'un projet restent sous `/_projects/<slug>/`.
+- Les exceptions à `/p/<slug>/` (OAuth, MCP, webhook) passent par le mécanisme générique `project.php` / `external_routes`, sans branchement spécifique dans `index.php`.
