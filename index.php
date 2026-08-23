@@ -5,9 +5,14 @@ require __DIR__ . '/_app/db.php';
 require __DIR__ . '/_app/auth.php';
 require __DIR__ . '/_app/acl.php';
 require __DIR__ . '/_app/projects.php';
+require __DIR__ . '/_app/fit.php';
 
 $pdo = db($cfg);
 start_session($cfg);
+
+if (FitMcpController::handle($pdo, $cfg)) {
+    exit;
+}
 
 $projectsRoot = __DIR__ . '/_projects';
 

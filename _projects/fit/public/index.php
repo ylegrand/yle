@@ -9,6 +9,7 @@ if (!isset($pdo, $user) || !($pdo instanceof PDO) || !is_array($user) || !isset(
 }
 
 require_once __DIR__ . '/../../../_app/fit.php';
+require_once __DIR__ . '/../../../_app/csrf.php';
 
 function fit_web_h(mixed $value): string {
   return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -35,6 +36,30 @@ $base = rtrim(dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/p/fit/index.php')),
 if ($base === '') {
   $base = '/p/fit';
 }
+$page = (string) ($_GET['page'] ?? 'dashboard');
+if ($page === 'configure') {
+  require_project_role($pdo, $user, 'fit', 'editor');
+  $error = null;
+  if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    csrf_check($pdo, (int) $user['id'], (string) ($_POST['csrf'] ?? ''));
+    try {
+      if (isset($_POST['revoke_token_id'])) {
+        fit_oauth_service($pdo)->revokeToken((int) $user['id'], (int) $_POST['revoke_token_id']);
+        header('Location: ' . $base . '/?page=configure&revoked=1'); exit;
+      }
+      $profile = json_decode((string) ($_POST['profile_data'] ?? '{}'), true, flags: JSON_THROW_ON_ERROR);
+      if (!is_array($profile)) throw new FitValidationException('INVALID_PROFILE', 'Le profil doit être un objet JSON.');
+      $service->saveProfile((int) $user['id'], $profile, (string) ($_POST['timezone'] ?? 'Europe/Paris'));
+      $code = (string) ($_POST['rule_code'] ?? '');
+      $rule = json_decode((string) ($_POST['rule_data'] ?? '{}'), true, flags: JSON_THROW_ON_ERROR);
+      if ($code !== '' && is_array($rule)) $service->saveRuleBlock((int) $user['id'], $code, $rule);
+      header('Location: ' . $base . '/?page=configure&saved=1'); exit;
+    } catch (Throwable $exception) { $error = $exception instanceof FitValidationException ? $exception->getMessage() : 'Données JSON invalides.'; }
+  }
+  $csrf = csrf_token($pdo, (int) $user['id']);
+  $tokens = fit_oauth_service($pdo)->listActiveTokens((int) $user['id']);
+  ?><!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Configurer Fit</title><link rel="stylesheet" href="<?= fit_web_h($base) ?>/app.css"></head><body><main class="fit-shell"><header class="fit-header"><div><p class="eyebrow">Fit · configuration</p><h1>Profil et règles</h1></div><a class="back-link" href="<?= fit_web_h($base) ?>/">Tableau de bord</a></header><?php if ($error): ?><section class="notice"><?= fit_web_h($error) ?></section><?php endif; ?><?php if (isset($_GET['saved'])): ?><section class="notice">Configuration enregistrée et versionnée.</section><?php endif; ?><?php if (isset($_GET['revoked'])): ?><section class="notice">Autorisation MCP révoquée.</section><?php endif; ?><section class="panel"><form method="post"><input type="hidden" name="csrf" value="<?= fit_web_h($csrf) ?>"><label>Fuseau horaire <input name="timezone" value="<?= fit_web_h($context['profile']['timezone']) ?>"></label><label>Profil (JSON) <textarea name="profile_data" rows="8"><?= fit_web_h(json_encode($context['profile']['data'] ?? new stdClass(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></textarea></label><label>Bloc à versionner <select name="rule_code"><option value="">— ne pas modifier —</option><?php foreach ($configuration['blocks'] as $block): ?><option value="<?= fit_web_h($block['code']) ?>"><?= fit_web_h($block['code']) ?></option><?php endforeach; ?></select></label><label>Données du bloc (JSON) <textarea name="rule_data" rows="8">{}</textarea></label><button class="back-link" type="submit">Enregistrer</button></form></section><section class="panel"><h2>Autorisations MCP actives</h2><?php if (!$tokens): ?><p class="empty">Aucune autorisation active.</p><?php else: ?><?php foreach ($tokens as $token): ?><form method="post" class="rule-list"><input type="hidden" name="csrf" value="<?= fit_web_h($csrf) ?>"><span><?= fit_web_h($token['client_id']) ?> · <?= fit_web_h($token['scopes']) ?> · expire <?= fit_web_h($token['expires_at']) ?></span><button name="revoke_token_id" value="<?= fit_web_h($token['id']) ?>" type="submit">Révoquer</button></form><?php endforeach; ?><?php endif; ?></section></main></body></html><?php exit;
+}
 ?>
 <!doctype html>
 <html lang="fr">
@@ -52,7 +77,7 @@ if ($base === '') {
       <h1>Contexte d’entraînement</h1>
       <p class="muted">Les décisions restent préparées par le coach conversationnel ; le portail conserve les faits, versions et historiques.</p>
     </div>
-    <a class="back-link" href="/_admin/">Retour au portail</a>
+    <div><a class="back-link" href="<?= fit_web_h($base) ?>/?page=configure">Configurer</a> <a class="back-link" href="/_admin/">Retour au portail</a></div>
   </header>
 
   <section class="summary-grid" aria-label="Résumé Fit">

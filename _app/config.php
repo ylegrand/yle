@@ -111,6 +111,9 @@ $config = [
   'db_pass' => env_value('DB_PASS', ''),
   'share_token_secret' => env_value('SHARE_TOKEN_SECRET', ''),
   'install_enabled' => env_bool('INSTALL_ENABLED', false),
+  'fit_mcp_enabled' => env_bool('FIT_MCP_ENABLED', false),
+  'fit_mcp_base_url' => rtrim((string) env_value('FIT_MCP_BASE_URL', ''), '/'),
+  'fit_oauth_clients' => (string) env_value('FIT_OAUTH_CLIENTS', ''),
 
   // sécurité cookies session
   'cookie_secure' => $cookieSecure,

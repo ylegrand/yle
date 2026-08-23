@@ -4,6 +4,7 @@
 
 - Projet portail `fit`, accessible sous `/p/fit/` avec l'authentification et l'ACL existantes.
 - Tableau de bord web en lecture seule : contexte, équipement, règles versionnées, programme actif, brouillon et historique récent.
+- Écran `?page=configure` réservé aux éditeurs : profil et blocs de règles enregistrés par versions, avec CSRF.
 - Schéma MySQL additif, isolé du modèle du portail par le préfixe `fit_`.
 - Service PHP `FitService` pour le profil, les règles versionnées, les brouillons de séance, leurs points de reprise et leur clôture atomique.
 - Validation stricte des séries : une seule référence d'exercice, typage dynamique/cardio/isométrique, champs inconnus conservés à `NULL`, motif obligatoire pour une omission.
@@ -20,14 +21,18 @@ Le module ne contient ni appel LLM côté serveur, ni authentification locale, n
 
 ## Migration production OVH
 
-La migration est strictement additive : `migrations/202608230001_fit_core.sql`. Elle ne modifie ni `users`, ni l'authentification, ni les ACL existantes.
+Les migrations sont strictement additives : `migrations/202608230001_fit_core.sql` (socle Fit) et `migrations/202608230002_fit_mcp_oauth.sql` (OAuth MCP). Elles ne modifient ni `users`, ni l'authentification, ni les ACL existantes.
 
 1. Sauvegarder la base depuis phpMyAdmin / OVH.
-2. Importer ce fichier SQL dans la base du portail via phpMyAdmin. Il crée 21 tables `fit_*`.
+2. Importer les deux fichiers SQL dans l'ordre, via phpMyAdmin. Ils créent 23 tables `fit_*`.
 3. Si un accès CLI PHP est disponible, préférer `php scripts/migrate.php`; le runner enregistre les migrations déjà appliquées dans `schema_migrations` et est relançable sans effet de bord.
 4. Vérifier : `SHOW TABLES LIKE 'fit_%';` doit retourner 21 tables, puis se connecter au portail et ouvrir `/p/fit/` avec un compte autorisé.
 
 Le runner est réservé au CLI et les dossiers `migrations/` et `scripts/` sont bloqués en HTTP par `.htaccess`.
+
+## Écritures conversationnelles
+
+Les outils MCP `fit_save_profile`, `fit_save_rule_block`, `fit_open_or_resume_draft`, `fit_checkpoint_draft` et `fit_close_draft` sont disponibles. Ils exigent le scope OAuth `fit.write` et l'argument explicite `confirmed=true`; les lectures restent sous `fit.read`. Les séances utilisent les transactions du service existant.
 
 ## Intégration conversationnelle
 

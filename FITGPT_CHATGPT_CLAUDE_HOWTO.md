@@ -48,3 +48,22 @@ Références : [Anthropic — MCP](https://docs.anthropic.com/en/docs/mcp) et [c
 ## Variables d’environnement prévues
 
 `FIT_OAUTH_CLIENTS` est un JSON injecté par OVH. Chaque entrée contient `client_id` et la liste stricte de ses `redirect_uris`. Ne jamais accepter une URL de retour fournie librement par un client.
+
+Exemple de forme (à adapter aux URLs effectivement communiquées par le client) :
+
+```json
+[{"client_id":"fit-poc-client","redirect_uris":["https://client.example/callback"]}]
+```
+
+## Endpoints livrés
+
+- `/.well-known/oauth-protected-resource/fit-mcp`
+- `/.well-known/oauth-authorization-server`
+- `/fit-mcp/authorize`
+- `/fit-mcp/token`
+- `/fit-mcp/revoke`
+- `/fit-mcp/mcp`
+
+Le serveur est fermé par défaut (`FIT_MCP_ENABLED=0`). Avec le scope `fit.read`, seuls `fit_get_context` et `fit_get_configuration` sont disponibles. Le scope additionnel `fit.write`, une confirmation `confirmed=true` dans l'appel et le consentement OAuth explicite sont requis pour `fit_save_profile` et `fit_save_rule_block`.
+
+Le client peut invalider son jeton via l’endpoint de révocation ; un jeton révoqué ne peut plus appeler les outils MCP.
