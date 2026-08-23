@@ -1,0 +1,14 @@
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #10141b; color: #edf1f7; }
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(circle at 18% -20%, #214158, transparent 35rem), #10141b; }
+.fit-shell { max-width: 1100px; padding: 3rem 1.25rem 4rem; margin: auto; }
+.fit-header { display: flex; gap: 2rem; justify-content: space-between; align-items: start; margin-bottom: 2rem; }
+h1, h2, p { margin-top: 0; } h1 { font-size: clamp(2rem, 5vw, 3.25rem); margin-bottom: .5rem; letter-spacing: -.04em; } h2 { font-size: 1.05rem; }
+.eyebrow { color: #88d3ff; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; font-size: .75rem; }
+.muted, .empty { color: #aeb9c8; line-height: 1.55; }.empty { font-style: italic; }
+.back-link { color: #e1f5ff; text-decoration: none; border: 1px solid #45647a; border-radius: .6rem; padding: .65rem .85rem; white-space: nowrap; }
+.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem; }.card, .panel, .notice { background: rgba(23, 31, 43, .92); border: 1px solid #2b3c4e; border-radius: .9rem; padding: 1.25rem; }.metric { display: block; font-size: 2rem; font-weight: 750; color: #9fe2b5; }
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.panel--wide { grid-column: 1 / -1; }.notice { border-color: #4f835d; margin-bottom: 1rem; color: #d8f6df; }
+.rule-list { list-style: none; padding: 0; margin: 0 0 1rem; }.rule-list li { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #293b4c; padding: .55rem 0; }.badge { font-size: .75rem; border-radius: 99px; padding: .22rem .5rem; }.badge--complete { background: #1b6340; color: #e2ffeb; }.badge--incomplete { background: #5a4721; color: #fff3c7; }
+.session-table { overflow-x: auto; }.session-row { min-width: 600px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: .75rem; padding: .7rem 0; border-bottom: 1px solid #293b4c; }.session-row--head { color: #9eafc1; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
+@media (max-width: 700px) { .fit-shell { padding-top: 1.5rem; }.fit-header { display: block; }.back-link { display: inline-block; margin-top: 1rem; }.summary-grid, .columns { grid-template-columns: 1fr; }.panel--wide { grid-column: auto; } }

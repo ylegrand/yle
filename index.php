@@ -379,6 +379,15 @@ if (preg_match('#^/p/([^/]+)(/.*)?$#', $uri, $m)) {
     $slug = $m[1];
     $path = $m[2] ?? '/';
 
+    // A direct project URL must work even before the home page has refreshed
+    // the filesystem catalogue. Discovery only inserts/updates local project
+    // metadata; ACL remains enforced immediately afterwards.
+    try {
+        sync_projects_from_filesystem($pdo, $projectsRoot);
+    } catch (Throwable $e) {
+        // The subsequent realpath and ACL checks remain authoritative.
+    }
+
     if (!preg_match('/^[a-zA-Z0-9._-]+$/', $slug) || $slug === '.' || $slug === '..') {
         http_response_code(404);
         exit('Not found');
