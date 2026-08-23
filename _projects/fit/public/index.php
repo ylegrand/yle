@@ -22,6 +22,7 @@ function fit_web_status_label(string $status): string {
   };
 }
 
+
 $service = fit_service($pdo);
 $context = $service->getSessionContext((int) $user['id']);
 $configuration = $service->getConfigurationStatus((int) $user['id']);

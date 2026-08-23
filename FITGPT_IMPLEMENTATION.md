@@ -29,6 +29,10 @@ La migration est strictement additive : `migrations/202608230001_fit_core.sql`. 
 
 Le runner est réservé au CLI et les dossiers `migrations/` et `scripts/` sont bloqués en HTTP par `.htaccess`.
 
-## Prochaine intégration fonctionnelle
+## Intégration conversationnelle
 
-L'interface Web reste volontairement en lecture seule, comme prévu au cadrage. Les entrées structurées doivent venir du coach conversationnel après le POC OAuth/MCP : il appellera le service avec l'identité portail vérifiée et non un secret utilisateur. Avant de l'exposer, il faut finaliser ce POC sur les offres ChatGPT/Claude effectivement utilisées, car leur disponibilité et leurs exigences OAuth sont distinctes.
+L'interface Web reste volontairement en lecture seule, comme prévu au cadrage. Le guide de mise en œuvre et de recette ChatGPT/Claude est disponible dans `FITGPT_CHATGPT_CLAUDE_HOWTO.md`. Le client conversationnel doit appeler le service avec l'identité portail vérifiée et non un secret utilisateur.
+
+## Import historique
+
+L'import de l'ancien Google Sheet est volontairement différé. Lorsque le mapping métier sera stabilisé, un export `.xlsx` actuel suffira : aucun connecteur Google Sheets ne sera nécessaire.
