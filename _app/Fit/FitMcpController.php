@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 final class FitMcpController {
   public static function handle(PDO $pdo, array $cfg): bool {
-    $path=parse_url((string)($_SERVER['REQUEST_URI']??'/'),PHP_URL_PATH) ?: '/';
+    $path=fit_request_path();
     if (!in_array($path,['/.well-known/oauth-protected-resource/fit-mcp','/.well-known/oauth-authorization-server','/fit-mcp/authorize','/fit-mcp/token','/fit-mcp/revoke','/fit-mcp/mcp'],true)) return false;
     if (empty($cfg['fit_mcp_enabled']) || empty($cfg['fit_mcp_base_url'])) { http_response_code(404); echo 'Not found'; return true; }
     if ($path==='/.well-known/oauth-protected-resource/fit-mcp') { self::json(['resource'=>$cfg['fit_mcp_base_url'].'/fit-mcp/mcp','authorization_servers'=>[$cfg['fit_mcp_base_url']],'scopes_supported'=>['fit.read','fit.write']]); return true; }

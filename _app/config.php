@@ -53,6 +53,18 @@ function env_bool(string $key, bool $default): bool {
   return in_array($raw, ['1', 'true', 'yes', 'on'], true);
 }
 
+function portal_base_path(): string {
+  if (isset($_SERVER['PORTAL_BASE_PATH'])) {
+    return (string) $_SERVER['PORTAL_BASE_PATH'];
+  }
+  $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
+  $base = rtrim(str_replace('\\', '/', dirname($script)), '/');
+  if (str_ends_with($base, '/_admin')) {
+    $base = rtrim(dirname($base), '/');
+  }
+  return ($base === '' || $base === '.') ? '' : $base;
+}
+
 function portal_configure_production_error_handling(array $cfg): void {
   if (PHP_SAPI === 'cli' || ($cfg['app_env'] ?? 'prod') !== 'prod') {
     return;

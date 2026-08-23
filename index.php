@@ -10,6 +10,10 @@ require __DIR__ . '/_app/fit.php';
 $pdo = db($cfg);
 start_session($cfg);
 
+// Keep the deployment base (for example /yle in WAMP) when project routing
+// later replaces SCRIPT_NAME with its virtual project URL.
+$_SERVER['PORTAL_BASE_PATH'] = fit_base_path();
+
 if (FitMcpController::handle($pdo, $cfg)) {
     exit;
 }
@@ -170,7 +174,7 @@ function parse_temp_share_token(array $cfg, string $token, string $expectedSlug)
     ];
 }
 
-$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
+$uri = fit_request_path();
 $uri = rtrim($uri, '/');
 if ($uri === '') $uri = '/';
 
@@ -190,7 +194,7 @@ if ($uri === '/') {
 
     $user = current_user($pdo);
     if (!$user) {
-        header('Location: /_admin/');
+        header('Location: ' . fit_base_path() . '/_admin/');
         exit;
     }
 
@@ -406,7 +410,7 @@ if (preg_match('#^/p/([^/]+)(/.*)?$#', $uri, $m)) {
     } else {
         $shareGrant = parse_temp_share_token($cfg, (string)($_GET['st'] ?? ''), $slug);
         if ($shareGrant === null) {
-            header('Location: /_admin/');
+            header('Location: ' . fit_base_path() . '/_admin/');
             exit;
         }
 
@@ -459,7 +463,7 @@ if (preg_match('#^/p/([^/]+)(/.*)?$#', $uri, $m)) {
        Exécution PHP avec contexte corrigé
        ============================================================ */
 
-    $virtual = "/p/$slug/" . $rel;
+    $virtual = fit_base_path() . "/p/$slug/" . $rel;
 
     $_SERVER['SCRIPT_NAME'] = $virtual;
     $_SERVER['PHP_SELF'] = $virtual;

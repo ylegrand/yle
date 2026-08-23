@@ -77,7 +77,7 @@ if ($page === 'configure') {
       <h1>Contexte d’entraînement</h1>
       <p class="muted">Les décisions restent préparées par le coach conversationnel ; le portail conserve les faits, versions et historiques.</p>
     </div>
-    <div><a class="back-link" href="<?= fit_web_h($base) ?>/?page=configure">Configurer</a> <a class="back-link" href="/_admin/">Retour au portail</a></div>
+    <div><a class="back-link" href="<?= fit_web_h($base) ?>/?page=configure">Configurer</a> <a class="back-link" href="<?= fit_web_h(fit_base_path()) ?>/_admin/">Retour au portail</a></div>
   </header>
 
   <section class="summary-grid" aria-label="Résumé Fit">
