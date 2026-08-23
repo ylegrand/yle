@@ -1,6 +1,12 @@
 Options -Indexes
 RewriteEngine On
 
+# Ne jamais laisser Apache court-circuiter le portail pour ses fichiers internes.
+# Les assets projet sont servis par le routeur /p/<slug>/ après contrôle ACL.
+RewriteRule ^(?:_app|_projects)(?:/|$) - [F,L,NC]
+RewriteRule (^|/)\.git(?:/|$) - [F,L,NC]
+RewriteRule (^|/)\.env(?:\.|/|$) - [F,L,NC]
+
 # 1) Si le fichier ou dossier existe physiquement → le servir directement
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

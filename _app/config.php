@@ -53,12 +53,56 @@ function env_bool(string $key, bool $default): bool {
   return in_array($raw, ['1', 'true', 'yes', 'on'], true);
 }
 
+function portal_configure_production_error_handling(array $cfg): void {
+  if (PHP_SAPI === 'cli' || ($cfg['app_env'] ?? 'prod') !== 'prod') {
+    return;
+  }
+
+  // Les détails vont dans les logs PHP, jamais dans une réponse HTTP de prod.
+  ini_set('display_errors', '0');
+  ini_set('display_startup_errors', '0');
+  ini_set('html_errors', '0');
+  ini_set('xdebug.display_exception', '0');
+  ini_set('xdebug.force_display_errors', '0');
+
+  set_exception_handler(static function (Throwable $exception): void {
+    error_log(sprintf(
+      'Portal internal error: %s in %s:%d',
+      get_class($exception),
+      basename($exception->getFile()),
+      $exception->getLine()
+    ));
+
+    if (!headers_sent()) {
+      http_response_code(500);
+      header('Content-Type: text/plain; charset=utf-8');
+      header('X-Content-Type-Options: nosniff');
+    }
+
+    echo 'Internal server error';
+  });
+}
+
 load_env_file(__DIR__ . '/../.env');
 
-$appEnv = env_value('APP_ENV', 'prod');
-$httpsDetected = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+$appEnv = strtolower((string) env_value('APP_ENV', 'prod'));
+if (!in_array($appEnv, ['dev', 'prod'], true)) {
+  $appEnv = 'prod';
+}
 
-return [
+$httpsDetected = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+$cookieSecure = $appEnv === 'prod'
+  ? true
+  : env_bool('COOKIE_SECURE', $httpsDetected);
+$cookieSameSite = env_value('COOKIE_SAMESITE', 'Lax');
+if (!in_array($cookieSameSite, ['Lax', 'Strict', 'None'], true)) {
+  $cookieSameSite = 'Lax';
+}
+if ($cookieSameSite === 'None' && !$cookieSecure) {
+  $cookieSameSite = 'Lax';
+}
+
+$config = [
   'app_env' => $appEnv,
   'db_host' => env_value('DB_HOST', 'localhost'),
   'db_port' => (int) env_value('DB_PORT', '3306'),
@@ -66,8 +110,13 @@ return [
   'db_user' => env_value('DB_USER', ''),
   'db_pass' => env_value('DB_PASS', ''),
   'share_token_secret' => env_value('SHARE_TOKEN_SECRET', ''),
+  'install_enabled' => env_bool('INSTALL_ENABLED', false),
 
   // sécurité cookies session
-  'cookie_secure' => env_bool('COOKIE_SECURE', $appEnv === 'prod' ? true : $httpsDetected),
-  'cookie_samesite' => env_value('COOKIE_SAMESITE', 'Lax'),
+  'cookie_secure' => $cookieSecure,
+  'cookie_samesite' => $cookieSameSite,
 ];
+
+portal_configure_production_error_handling($config);
+
+return $config;

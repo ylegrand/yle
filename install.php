@@ -4,6 +4,11 @@ require __DIR__ . '/_app/db.php';
 
 function h($s){ return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 
+if (empty($cfg['install_enabled'])) {
+  http_response_code(404);
+  exit('Not found');
+}
+
 $errors = [];
 $done = false;
 

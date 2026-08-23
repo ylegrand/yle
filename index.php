@@ -13,6 +13,101 @@ $projectsRoot = __DIR__ . '/_projects';
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
+function portal_send_project_asset(string $path, string $extension): never {
+    $mimeTypes = [
+        'css' => 'text/css; charset=utf-8',
+        'js' => 'text/javascript; charset=utf-8',
+        'json' => 'application/json; charset=utf-8',
+        'svg' => 'image/svg+xml',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'ico' => 'image/x-icon',
+        'wav' => 'audio/wav',
+        'ogg' => 'audio/ogg',
+        'm4a' => 'audio/mp4',
+        'mp3' => 'audio/mpeg',
+        'woff' => 'font/woff',
+        'woff2' => 'font/woff2',
+        'webmanifest' => 'application/manifest+json; charset=utf-8',
+    ];
+
+    if (!isset($mimeTypes[$extension]) || !is_file($path) || !is_readable($path)) {
+        http_response_code(404);
+        exit('Not found');
+    }
+
+    $size = filesize($path);
+    if ($size === false) {
+        http_response_code(404);
+        exit('Not found');
+    }
+
+    $start = 0;
+    $end = max(0, $size - 1);
+    $status = 200;
+    $range = (string) ($_SERVER['HTTP_RANGE'] ?? '');
+
+    if ($size > 0 && preg_match('/^bytes=(\d*)-(\d*)$/', $range, $matches)) {
+        if ($matches[1] === '') {
+            $suffixLength = (int) $matches[2];
+            $start = max(0, $size - $suffixLength);
+        } else {
+            $start = (int) $matches[1];
+        }
+
+        if ($matches[2] !== '') {
+            $end = min($end, (int) $matches[2]);
+        }
+
+        if ($start > $end || $start >= $size) {
+            http_response_code(416);
+            header('Content-Range: bytes */' . $size);
+            exit;
+        }
+
+        $status = 206;
+    }
+
+    $length = $size === 0 ? 0 : ($end - $start + 1);
+    http_response_code($status);
+    header('Content-Type: ' . $mimeTypes[$extension]);
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: private, max-age=3600');
+    header('Accept-Ranges: bytes');
+    header('Content-Length: ' . $length);
+    if ($status === 206) {
+        header('Content-Range: bytes ' . $start . '-' . $end . '/' . $size);
+    }
+
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
+        if ($status === 200) {
+            readfile($path);
+        } else {
+            $handle = fopen($path, 'rb');
+            if ($handle === false) {
+                http_response_code(500);
+                exit('Internal server error');
+            }
+
+            fseek($handle, $start);
+            $remaining = $length;
+            while ($remaining > 0 && !feof($handle)) {
+                $chunk = fread($handle, min(8192, $remaining));
+                if ($chunk === false) {
+                    break;
+                }
+                echo $chunk;
+                $remaining -= strlen($chunk);
+            }
+            fclose($handle);
+        }
+    }
+    exit;
+}
+
 function app_base_url(): string {
     $https = $_SERVER['HTTPS'] ?? '';
     $isHttps = $https === 'on' || $https === '1';
@@ -284,6 +379,11 @@ if (preg_match('#^/p/([^/]+)(/.*)?$#', $uri, $m)) {
     $slug = $m[1];
     $path = $m[2] ?? '/';
 
+    if (!preg_match('/^[a-zA-Z0-9._-]+$/', $slug) || $slug === '.' || $slug === '..') {
+        http_response_code(404);
+        exit('Not found');
+    }
+
     $shareGrant = null;
     $user = current_user($pdo);
 
@@ -325,7 +425,8 @@ if (preg_match('#^/p/([^/]+)(/.*)?$#', $uri, $m)) {
 
     $target = realpath($webroot . '/' . $rel);
 
-    if (!$target || !str_starts_with($target, $webroot)) {
+    $webrootPrefix = rtrim($webroot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    if (!$target || !str_starts_with($target, $webrootPrefix)) {
         http_response_code(404);
         exit("Not found");
     }
@@ -333,16 +434,11 @@ if (preg_match('#^/p/([^/]+)(/.*)?$#', $uri, $m)) {
     $ext = strtolower(pathinfo($target, PATHINFO_EXTENSION));
 
     /* ============================================================
-       Si ce n'est PAS du PHP → laisser Apache servir le fichier
+       Assets : les servir après l'ACL sans exposer /_projects.
        ============================================================ */
 
     if ($ext !== 'php') {
-
-        $publicPrefix = is_dir($base . '/public') ? 'public/' : '';
-        $redirect = "/_projects/$slug/" . $publicPrefix . $rel;
-
-        header("Location: $redirect", true, 302);
-        exit;
+        portal_send_project_asset($target, $ext);
     }
 
     /* ============================================================
